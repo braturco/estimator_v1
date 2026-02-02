@@ -4,6 +4,19 @@ console.log("🧮 Loading calculations.js");
 
 window.Calculations = (function () {
   
+  // Formatting helpers
+  function formatMoney(value) {
+    const n = Number(value || 0);
+    if (!Number.isFinite(n)) return "";
+    return n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  }
+
+  function formatPercent(value) {
+    const n = Number(value || 0);
+    if (!Number.isFinite(n)) return "";
+    return (n * 100).toFixed(1) + "%";
+  }
+  
   // Calculate financial values for a single leaf node (task/work item)
   async function calculateLeafNode(node) {
     let directLaborReg = 0;
@@ -181,8 +194,47 @@ window.Calculations = (function () {
     console.log("✅ WBS calculations complete");
   }
 
-  // Recalculate and re-render
+  // Update financial cells without full re-render (preserves focus)
+  function updateFinancialCells() {
+    const container = document.getElementById("wbsContainer");
+    if (!container) return;
+
+    function updateNodeCells(node) {
+      const row = container.querySelector(`.wbs-row[data-id="${node.id}"]`);
+      if (row) {
+        const cells = row.querySelectorAll(".wbs-fin-cell");
+        if (cells.length >= 8) {
+          cells[0].textContent = formatMoney(node.directLabour);
+          cells[1].textContent = formatMoney(node.expenses);
+          cells[2].textContent = formatMoney(node.burdened);
+          cells[3].textContent = formatMoney(node.netRevenue);
+          cells[4].textContent = formatMoney(node.grossRevenue);
+          cells[5].textContent = formatPercent(node.nm);
+          cells[6].textContent = formatPercent(node.gm);
+          cells[7].textContent = formatMoney(node.dlm);
+        }
+      }
+      if (node.children && node.children.length > 0) {
+        node.children.forEach(updateNodeCells);
+      }
+    }
+
+    WBS_DATA.forEach(updateNodeCells);
+    
+    // Update totals row
+    if (window.renderTotalsRow) {
+      window.renderTotalsRow();
+    }
+  }
+
+  // Recalculate without re-rendering (preserves focus)
   async function recalculate() {
+    await calculateWBS();
+    updateFinancialCells();
+  }
+
+  // Recalculate and force full re-render
+  async function recalculateAndRender() {
     await calculateWBS();
     if (window.renderWBS) {
       window.renderWBS();
@@ -192,6 +244,8 @@ window.Calculations = (function () {
   return {
     calculateWBS,
     calculateNode,
-    recalculate
+    recalculate,
+    recalculateAndRender,
+    updateFinancialCells
   };
 })();

@@ -1657,11 +1657,11 @@ function wireTopButtons() {
 
   if (recalculateBtn) {
     recalculateBtn.onclick = async () => {
-      if (window.Calculations && window.Calculations.recalculate) {
+      if (window.Calculations && window.Calculations.recalculateAndRender) {
         recalculateBtn.disabled = true;
         recalculateBtn.textContent = "🧮 Calculating...";
         try {
-          await window.Calculations.recalculate();
+          await window.Calculations.recalculateAndRender();
           console.log("✅ Manual recalculation complete");
         } catch (err) {
           console.error("❌ Recalculation failed:", err);
