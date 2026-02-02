@@ -104,15 +104,13 @@ window.setupSidebarToggle = function() {
   closeBtn.addEventListener("click", closeSidebar);
 };
 
-// Render palettes for estimate types, tags, units
+// Render palettes for tags and units (estimate types removed)
 window.renderPalettes = function () {
-  const estEl = document.getElementById("estimateTypePalette");
   const tagEl = document.getElementById("tagPalette");
   const unitEl = document.getElementById("unitPalette");
 
-  EstimateTypeRegistry.forEach(item => estEl.appendChild(createPalettePill(item)));
-  TagRegistry.forEach(item => tagEl.appendChild(createPalettePill(item)));
-  UnitRegistry.forEach(item => unitEl.appendChild(createPalettePill(item)));
+  if (tagEl) TagRegistry.forEach(item => tagEl.appendChild(createPalettePill(item)));
+  if (unitEl) UnitRegistry.forEach(item => unitEl.appendChild(createPalettePill(item)));
 };
 
 // Setup section buttons (sidebar)
