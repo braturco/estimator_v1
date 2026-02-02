@@ -1,0 +1,197 @@
+// calculations.js — Calculate costs, revenues, and margins for WBS nodes
+
+console.log("🧮 Loading calculations.js");
+
+window.Calculations = (function () {
+  
+  // Calculate financial values for a single leaf node (task/work item)
+  async function calculateLeafNode(node) {
+    let directLaborReg = 0;
+    let directLaborOT = 0;
+    let revenue = 0;
+
+    // Calculate labor costs and revenue from activities
+    const entry = laborActivities[node.id];
+    if (entry && Array.isArray(entry.activities)) {
+      for (const activity of entry.activities) {
+        if (!activity.hours) continue;
+
+        // Iterate through each resource column ID that has hours
+        for (const columnId in activity.hours) {
+          const hours = activity.hours[columnId];
+          const regHours = Number(hours.reg || 0);
+          const otHours = Number(hours.ot || 0);
+
+          if (regHours === 0 && otHours === 0) continue;
+
+          // Find the resource in laborResources by column ID
+          const resource = laborResources.find(r => r.id === columnId);
+          if (!resource) {
+            console.warn(`Resource column ${columnId} not found in laborResources`);
+            continue;
+          }
+
+          // Get the actual resource ID for rate lookup
+          const actualResourceId = resource.resourceId || columnId;
+
+          // Get rates for this resource
+          try {
+            // Check for manual rate overrides first
+            let costRegular, costOT, sellRegular, sellOT;
+            
+            if (resource.overrideCostReg !== undefined || resource.overrideSellReg !== undefined) {
+              // Use manual overrides if available
+              costRegular = resource.overrideCostReg !== undefined ? resource.overrideCostReg : resource.costRate || 60;
+              costOT = resource.overrideCostOT !== undefined ? resource.overrideCostOT : (costRegular * 1.5);
+              sellRegular = resource.overrideSellReg !== undefined ? resource.overrideSellReg : resource.chargeoutRate || 120;
+              sellOT = resource.overrideSellOT !== undefined ? resource.overrideSellOT : (sellRegular * 1.5);
+            } else {
+              // Fetch from rate tables
+              const rates = await Rates.getRates(actualResourceId);
+              if (!rates) {
+                console.warn(`No rates found for resource ${actualResourceId}`);
+                continue;
+              }
+              costRegular = rates.costRegular;
+              costOT = rates.costOT;
+              sellRegular = rates.sellRegular;
+              sellOT = rates.sellOT;
+            }
+
+            // Calculate direct labor (cost) - keep reg and OT separate for OH calculation
+            directLaborReg += regHours * costRegular;
+            directLaborOT += otHours * costOT;
+
+            // Calculate revenue (sell)
+            const regRevenue = regHours * sellRegular;
+            const otRevenue = otHours * sellOT;
+            revenue += regRevenue + otRevenue;
+
+          } catch (err) {
+            console.error(`Error getting rates for resource ${actualResourceId}:`, err);
+          }
+        }
+      }
+    }
+
+    const directLabor = directLaborReg + directLaborOT;
+
+    // Apply OH/burden separately to reg and OT
+    const ohReg = window.ohRates ? window.ohRates.regular : 1.10;
+    const ohOT = window.ohRates ? window.ohRates.overtime : 1.10;
+    
+    const burdenedReg = directLaborReg * (1 + ohReg);
+    const burdenedOT = directLaborOT * (1 + ohOT);
+    const burdenedLabor = burdenedReg + burdenedOT;
+
+    // Expenses (manual entry for now, default 0)
+    const expenses = Number(node.expenses || 0);
+
+    // Net revenue = revenue (no markup applied at this level)
+    const netRevenue = revenue;
+
+    // Apply gross margin multiplier (default 1.15 = 15% markup)
+    const gmMultiplier = node.gmMultiplier || 1.15;
+    const grossRevenue = netRevenue * gmMultiplier;
+
+    // Calculate margins
+    const nm = netRevenue > 0 ? (netRevenue - burdenedLabor - expenses) / netRevenue : 0;
+    const gm = grossRevenue > 0 ? (grossRevenue - burdenedLabor - expenses) / grossRevenue : 0;
+    
+    // Direct labor margin (profit on labor only)
+    const dlm = directLabor > 0 ? (revenue - burdenedLabor) : 0;
+
+    return {
+      directLabour: directLabor,
+      expenses: expenses,
+      burdened: burdenedLabor,
+      netRevenue: netRevenue,
+      grossRevenue: grossRevenue,
+      nm: nm,
+      gm: gm,
+      dlm: dlm
+    };
+  }
+
+  // Roll up calculations from children to parent
+  function rollupNode(node) {
+    const totals = {
+      directLabour: 0,
+      expenses: 0,
+      burdened: 0,
+      netRevenue: 0,
+      grossRevenue: 0,
+      nm: 0,
+      gm: 0,
+      dlm: 0
+    };
+
+    if (!node.children || node.children.length === 0) {
+      return totals;
+    }
+
+    // Sum up all children
+    for (const child of node.children) {
+      totals.directLabour += Number(child.directLabour || 0);
+      totals.expenses += Number(child.expenses || 0);
+      totals.burdened += Number(child.burdened || 0);
+      totals.netRevenue += Number(child.netRevenue || 0);
+      totals.grossRevenue += Number(child.grossRevenue || 0);
+      totals.dlm += Number(child.dlm || 0);
+    }
+
+    // Recalculate margins based on rolled-up totals
+    totals.nm = totals.netRevenue > 0 
+      ? (totals.netRevenue - totals.burdened - totals.expenses) / totals.netRevenue 
+      : 0;
+    
+    totals.gm = totals.grossRevenue > 0 
+      ? (totals.grossRevenue - totals.burdened - totals.expenses) / totals.grossRevenue 
+      : 0;
+
+    return totals;
+  }
+
+  // Calculate entire WBS tree (recursive)
+  async function calculateNode(node) {
+    const hasChildren = node.children && node.children.length > 0;
+
+    if (!hasChildren) {
+      // Leaf node - calculate from activities and hours
+      const values = await calculateLeafNode(node);
+      Object.assign(node, values);
+    } else {
+      // Parent node - recurse children first, then roll up
+      for (const child of node.children) {
+        await calculateNode(child);
+      }
+      const values = rollupNode(node);
+      Object.assign(node, values);
+    }
+  }
+
+  // Calculate entire WBS
+  async function calculateWBS() {
+    console.log("🧮 Calculating WBS...");
+    
+    for (const node of WBS_DATA) {
+      await calculateNode(node);
+    }
+    
+    console.log("✅ WBS calculations complete");
+  }
+
+  // Recalculate and re-render
+  async function recalculate() {
+    await calculateWBS();
+    if (window.renderWBS) {
+      window.renderWBS();
+    }
+  }
+
+  return {
+    calculateWBS,
+    calculateNode,
+    recalculate
+  };
+})();

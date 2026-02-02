@@ -1,0 +1,309 @@
+/* Pills, pill zones, palettes */
+
+.palette {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 8px;
+}
+
+/* Hide number input spinners */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+  display: none;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  overflow: visible !important;
+}
+
+/* Labor input styling - match wbs-fin-cell appearance */
+.wbs-labor-input {
+  width: calc(100% - 2px);
+  margin: 2px 1px;
+  padding: 3px 24px 3px 6px;
+  font-size: 12px;
+  text-align: right;
+  border: 1px solid var(--border-muted);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+  box-sizing: border-box;
+  min-width: 0;
+  border-radius: 999px;
+}
+
+.wbs-labor-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.wbs-labor-rollup {
+  padding: 3px 24px 3px 6px;
+  font-size: 12px;
+  text-align: right;
+  color: var(--text-muted);
+  font-variant-numeric: tabular-nums;
+  font-style: italic;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.wbs-labor-input::placeholder {
+  color: var(--text-muted);
+  opacity: 0.3;
+}
+
+
+.labor-input-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+
+.labor-col-cell {
+  height: 100%;
+  align-self: stretch;
+  margin: -4px 0;
+  padding: 4px 0;
+}
+
+.labor-col-cell.odd-resource {
+  background: rgba(96, 165, 250, 0.12);
+}
+
+.col-header.resource-header.odd-resource-col {
+  background: rgba(96, 165, 250, 0.12);
+  align-self: stretch;
+  margin: -4px 0;
+  padding: 4px 0;
+}
+
+.col-header.resource-header {
+  justify-content: center;
+  text-align: center;
+  padding-right: 0;
+  cursor: grab;
+}
+
+.col-header.resource-header:active {
+  cursor: grabbing;
+}
+
+.wbs-header .col-header.resource-header {
+  justify-content: center;
+  text-align: center;
+  padding-right: 0;
+}
+
+.labor-input-label {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 9px;
+  color: var(--text-muted);
+  opacity: 0.5;
+  pointer-events: none;
+  background: transparent;
+  padding: 1px 2px;
+}
+
+.labor-activity-row {
+  cursor: grab;
+}
+
+.labor-activity-row:active {
+  cursor: grabbing;
+}
+
+.labor-activity-row .wbs-activity-label {
+  font-style: italic;
+  color: var(--text-muted);
+}
+
+/* Labor matrix table overflow handling */
+table td {
+  overflow: visible !important;
+  position: relative;
+}
+
+.pill {
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 11px;
+  cursor: grab;
+  user-select: none;
+  white-space: nowrap;
+  background: transparent;
+  border: 1px solid var(--pill-border);
+  color: var(--pill-text);
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.pill:active {
+  cursor: grabbing;
+  opacity: 0.8;
+}
+
+
+.pill-zone {
+  min-height: 24px;
+  border-radius: 999px;
+  padding: 2px 4px;
+  display: flex;
+  flex-wrap: wrap; 
+  gap: 4px;
+  align-items: left;
+  gap: 4px;
+  border: 1px dashed var(--border-muted);
+  background: var(--bg-panel);
+  transition: border-color 0.15s, background 0.15s;
+  pointer-events: auto;
+}
+
+.pill-zone-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  margin-right: 4px;
+}
+
+.pill-zone.active-drop {
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.pill-zone .pill {
+  cursor: pointer;
+  font-size: 10px;
+  padding: 2px 6px;
+}
+
+.pill-zone .pill span.remove {
+  margin-left: 4px;
+  font-size: 10px;
+  cursor: pointer;
+  opacity: 0.7;
+}
+
+.disabled-zone {
+  opacity: 0.3;
+  border: 1px dashed transparent;
+  pointer-events: none;
+  text-align: center;
+  padding: 4px;
+}
+
+.wbs-name::before {
+  content: "";
+  display: inline-block;
+  width: 22px;
+  margin-right: 6px;
+}
+
+.wbs-name.rollup::before {
+  content: "[–]"; /* expanded */
+  color: var(--text-muted);
+  font-size: 11px;
+  opacity: 0.8;
+}
+
+.wbs-name.rollup.collapsed::before { 
+	content: "[+]"; /* collapsed */ 
+	}
+
+.wbs-name.rollup .wbs-activity-label {
+  color: var(--text-muted);
+}
+	
+.wbs-fin-cell {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--text-muted);
+}
+
+.pill-zone:empty::before {
+  font-size: 10px; 
+  letter-spacing: 0.5px;
+  content: attr(data-placeholder);
+  color: var(--text-muted);
+  opacity: 0.4;
+}
+
+/* Selected row highlight for clarity when adding activities */
+.wbs-row-selected {
+  background: rgba(96, 165, 250, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35);
+}
+
+/* Active activity row highlight */
+.wbs-row-active {
+  background: rgba(56, 189, 248, 0.10);
+  box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.28);
+}
+
+/* Buttons */
+
+.btn {
+  padding: 8px 16px;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  border: none;
+  transition: background-color 0.15s, opacity 0.15s;
+  white-space: nowrap;
+  user-select: none;
+}
+
+.btn:hover {
+  opacity: 0.9;
+}
+
+.btn:active {
+  opacity: 0.8;
+}
+
+.btn-primary {
+  background-color: var(--accent, #0ea5e9);
+  color: white;
+}
+
+.btn-primary:hover {
+  background-color: #0284c7;
+}
+
+.btn-secondary {
+  background-color: var(--bg-hover, rgba(255, 255, 255, 0.1));
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+
+.btn-secondary:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.col-header {
+  position: relative;
+  user-select: none;
+}
+
+.col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 6px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 20;
+}
+
+.col-resize-handle:hover {
+  background: rgba(255,255,255,0.15);
+}

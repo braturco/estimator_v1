@@ -1,0 +1,45 @@
+/* Dark mode theme variables */
+
+:root {
+  --bg: #111827;
+  --bg-sidebar: #020617;
+  --bg-panel: #020617;
+  --bg-header: #030712;
+  --bg-hover: #0b1120;
+
+  --text: #e5e7eb;
+  --text-muted: #6b7280;
+
+  --border: #1f2937;
+  --border-muted: #374151;
+
+  --accent: #60a5fa;
+
+	--pill-estimate: #1d4ed8; 
+	--pill-tag: #047857; 
+	--pill-unit: #a855f7; 
+	--pill-text: #e5e7eb; 
+	--pill-border: #4b5563; /* default border */ }
+}
+
+/* Estimate Types */
+.pill[data-category="estimateType"] {
+  border-color: var(--pill-estimate);
+  color: var(--pill-estimate);
+}
+
+/* Tags */
+.pill[data-category="tag"] {
+  border-color: var(--pill-tag);
+  color: var(--pill-tag);
+}
+
+/* Units */
+.pill[data-category="unit"] {
+  border-color: var(--pill-unit);
+  color: var(--pill-unit);
+}
+
+.pill:hover {
+  background: rgba(255,255,255,0.05);
+}

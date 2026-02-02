@@ -1,0 +1,19 @@
+{
+  "columns": [
+    {
+      "id": "standard",
+      "label": "Standard",
+      "description": "Default rates"
+    },
+    {
+      "id": "premium",
+      "label": "Premium",
+      "description": "High-value services"
+    },
+    {
+      "id": "discount",
+      "label": "Discount",
+      "description": "Discounted rates"
+    }
+  ]
+}

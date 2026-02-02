@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Estimating Tool</title>
+
+  <!-- CSS -->
+  <link rel="stylesheet" href="css/base.css?v=2" />
+  <link rel="stylesheet" href="css/layout.css?v=2" />
+  <link rel="stylesheet" href="css/components.css?v=2" />
+  <link rel="stylesheet" href="css/theme-dark.css?v=2" />
+  <link rel="stylesheet" href="css/theme-light.css?v=1" />
+  <link rel="stylesheet" href="css/modal.css?v=3" />
+
+</head>
+
+<body>
+  <div class="main-container">
+    <div class="header">
+      <button id="toggleSidebarBtn" class="sidebar-toggle" title="Toggle pill palette">☰</button>
+      <div class="header-title">WBS & Pills — Phase 1 Core</div>
+      <div class="header-note">Drag from left → drop into zones</div>
+      <button id="themeToggleBtn" class="btn btn-secondary" style="margin-left: auto; padding: 6px 12px;" title="Toggle light/dark mode">🌙</button>
+    </div>
+
+    <div class="sidebar-overlay" id="sidebarOverlay"></div>
+    <button class="sidebar-edge-toggle" id="edgeToggleBtn" title="Toggle sidebar">›</button>
+    <div class="sidebar" id="sidebar">
+      <div class="sidebar-header">
+        <h2>Pill Palette</h2>
+        <button class="sidebar-close" id="closeSidebarBtn">×</button>
+      </div>
+      <div class="sidebar-content">
+        <div class="sidebar-section">
+          <h3>Estimate Types</h3>
+          <div id="estimateTypePalette" class="palette"></div>
+        </div>
+        <div class="sidebar-section">
+          <h3>Tags</h3>
+          <div id="tagPalette" class="palette"></div>
+        </div>
+        <div class="sidebar-section">
+          <h3>Units</h3>
+          <div id="unitPalette" class="palette"></div>
+        </div>
+        <div class="sidebar-section">
+          <h3>Setup</h3>
+          <div class="palette" style="flex-direction: column; align-items: stretch; gap: 8px;">
+            <button id="setupRateScheduleBtn" class="btn btn-secondary">🧮 Rate Schedule Mgmt</button>
+            <button id="setupResourcesBtn" class="btn btn-secondary">⚙ Resource Mgmt</button>
+            <button id="setupOHRatesBtn" class="btn btn-secondary">📊 OH/Burden Rates</button>
+            <button id="setupTagsBtn" class="btn btn-secondary">🏷 Tag Mgmt</button>
+            <button id="setupUnitsBtn" class="btn btn-secondary">📏 Unit Mgmt</button>
+          </div>
+        </div>
+        <div class="sidebar-section">
+          <h3>File</h3>
+          <div class="palette" style="flex-direction: column; align-items: stretch; gap: 8px;">
+            <button id="exportEstimateBtn" class="btn btn-primary">💾 Export Estimate</button>
+            <button id="importEstimateBtn" class="btn btn-secondary">📂 Import Estimate</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+
+    <div class="wbs-wrapper">
+      <div class="wbs-toolbar">
+        <button id="addPhaseBtn" class="btn btn-primary">+ Phase</button>
+        <button id="addTaskBtn" class="btn btn-secondary">+ Task</button>
+        <button id="laborModeBtn" class="btn btn-secondary">Labor Mode</button>
+        <button id="addResourceBtn" class="btn btn-secondary" style="display: none;">+ Resource</button>
+        <button id="addActivityBtn" class="btn btn-secondary" style="display: none;">+ Activity</button>
+        <button id="recalculateBtn" class="btn btn-secondary">🧮 Recalculate</button>
+      </div>
+      <div id="wbsContainer" class="wbs-container">
+        <!-- WBS rows injected here -->
+        <div id="wbsTotals" class="wbs-row wbs-totals-row"></div>
+      </div>
+    </div>
+
+    <div class="footer">
+      WBS with drag & drop, labor estimation, and automatic cost calculations
+    </div>
+  </div>
+
+  <!-- JSZip for export/import -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+
+  <!-- JS -->
+  <script src="js/datastore.js?v=7"></script>
+  <script src="js/job-levels.js?v=2"></script>
+    <script src="js/rate-columns.js?v=2"></script>
+  <script src="js/rate-tables.js?v=2"></script>
+  <script src="js/registry-estimateTypes.js?v=3"></script>
+  <script src="js/registry-tags.js?v=3"></script>
+  <script src="js/registry-units.js?v=3"></script>
+  <script src="js/rates.js?v=5"></script>
+  <script src="js/calculations.js?v=2"></script>
+  <script src="js/resource-manager.js?v=16"></script>
+  <script src="js/estimate-export.js?v=1"></script>
+
+  <script src="js/form-labor-ttm.js?v=5"></script>
+  <script src="js/labor-matrix.js?v=4"></script>
+  <script src="js/labor-expansion.js?v=3"></script>
+  <script src="js/pills.js?v=3"></script>
+  <script src="js/dragdrop.js?v=3"></script>
+	<script src="js/columnResize.js?v=3"></script>
+  <script src="js/wbs.js?v=14"></script>
+  <script src="js/modal.js?v=3"></script>
+  <script src="js/app.js?v=5"></script>
+</body>
+</html>

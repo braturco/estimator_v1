@@ -1,0 +1,40 @@
+{
+  "resources": [
+    {
+      "id": "john.smith",
+      "name": "John Smith",
+      "employeeId": "EMP-001",
+      "jobLevel": "Senior Engineer",
+      "businessLine": "Engineering",
+      "costCenter": "CC-100",
+      "manager": "Alice Johnson",
+      "locations": "New York",
+      "jobTitle": "Senior Software Engineer",
+      "businessCardTitle": "Sr. Eng"
+    },
+    {
+      "id": "jane.doe",
+      "name": "Jane Doe",
+      "employeeId": "EMP-002",
+      "jobLevel": "Engineer",
+      "businessLine": "Consulting",
+      "costCenter": "CC-200",
+      "manager": "Bob Smith",
+      "locations": "San Francisco",
+      "jobTitle": "Consulting Engineer",
+      "businessCardTitle": "Consultant"
+    },
+    {
+      "id": "mike.wilson",
+      "name": "Mike Wilson",
+      "employeeId": "EMP-003",
+      "jobLevel": "Technician",
+      "businessLine": "Operations",
+      "costCenter": "CC-300",
+      "manager": "Carol White",
+      "locations": "Chicago",
+      "jobTitle": "Systems Technician",
+      "businessCardTitle": "Tech"
+    }
+  ]
+}

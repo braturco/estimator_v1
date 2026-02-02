@@ -1,0 +1,358 @@
+/* ---------------------------------------------------------
+   Layout for main container, header, sidebar, and WBS
+--------------------------------------------------------- */
+
+body {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  height: 100vh;
+}
+
+.main-container {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  transition: margin-left 0.25s ease-out;
+}
+
+.main-container.sidebar-open {
+  margin-left: 320px;
+}
+
+.header {
+  font-size: 16px;
+  padding: 12px 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+  gap: 12px;
+}
+
+.sidebar-toggle {
+  background: none;
+  border: none;
+  font-size: 18px;
+  cursor: pointer;
+  color: var(--text);
+  padding: 6px 8px;
+  border-radius: 4px;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.sidebar-toggle:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-edge-toggle {
+  position: fixed;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 32px;
+  height: 80px;
+  background: var(--bg-panel);
+  border: 1px solid var(--border);
+  border-left: none;
+  border-radius: 0 8px 8px 0;
+  font-size: 20px;
+  cursor: pointer;
+  z-index: 998;
+  color: var(--text);
+  transition: left 0.25s ease-out;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 1;
+}
+
+.header-title {
+  font-weight: 600;
+  flex: 1;
+}
+
+.header-note {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0 16px;
+}
+
+.sidebar {
+  position: fixed;
+  left: -320px;
+  top: 0;
+  width: 320px;
+  height: 100vh;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  box-sizing: border-box;
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  transition: left 0.25s ease-out;
+  overflow-y: auto;
+}
+
+.sidebar.open {
+  left: 0;
+}
+
+.sidebar-edge-toggle.open {
+  left: 320px;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0);
+  z-index: 999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.25s ease-out;
+}
+
+.sidebar-overlay.open {
+  background: rgba(0, 0, 0, 0.3);
+  opacity: 1;
+  pointer-events: none;
+}
+
+.sidebar-header {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.sidebar-header h2 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+}
+
+.sidebar-close {
+  background: none;
+  border: none;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text);
+  padding: 0;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  transition: background 0.15s;
+}
+
+.sidebar-close:hover {
+  background: var(--bg-hover);
+}
+
+.sidebar-content {
+  padding: 12px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1;
+  overflow-y: auto;
+}
+
+.sidebar-section {
+  flex: 0 1 auto;
+  min-width: 160px;
+}
+
+.sidebar-section h3 {
+  margin: 0 0 8px 0;
+  font-size: 12px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text-muted);
+  letter-spacing: 0.5px;
+}
+
+/* ---------------------------------------------------------
+   WBS GRID CONTAINER
+--------------------------------------------------------- */
+
+.wbs-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  padding: 12px 16px;
+  box-sizing: border-box;
+  min-height: 0;
+  position: relative;
+}
+
+.wbs-toolbar {
+  position: absolute;
+  top: 12px;
+  left: 16px;
+  display: flex;
+  gap: 8px;
+  z-index: 15;
+  flex-shrink: 0;
+}
+
+.wbs-container {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 8px;
+  padding-top: 40px;
+  background: var(--bg-panel);
+  overflow-y: auto;
+  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  /* Enable sticky positioning for grid children */
+  display: block;
+}
+
+
+/* ---------------------------------------------------------
+   COLUMN WIDTHS (shared across all rows)
+--------------------------------------------------------- */
+
+:root {
+  --wbs-columns: 100px 260px 160px 120px 120px 120px 120px 120px 90px 90px 90px;
+}
+
+/* ---------------------------------------------------------
+   WBS ROWS
+--------------------------------------------------------- */
+
+.wbs-row {
+  display: grid;
+  grid-template-columns: var(--wbs-columns);
+  align-items: center;
+  padding: 4px 6px;
+  border-bottom: 1px solid var(--bg);
+  font-size: 12px;
+  /* Enable proper sticky positioning */
+  position: relative;
+  isolation: isolate;
+  min-width: max-content;
+  overflow: visible;
+}
+
+/* Sticky header */
+
+.wbs-header {
+  font-weight: 600;
+  background: var(--bg-panel);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  border-bottom: 1px solid var(--border-muted);
+}
+
+.col-header {
+  position: relative;
+  display: flex;
+  align-items: center;
+  padding-right: 4px;
+  user-select: none;
+}
+
+.col-resize-handle {
+  position: absolute;
+  right: 0;
+  top: 0;
+  width: 12px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 200;
+  background: transparent;
+}
+
+.col-resize-handle:hover {
+  background: rgba(255,255,255,0.15);
+}
+
+/* Frozen columns removed: all columns scroll together */
+
+.wbs-rate-detail-row {
+  position: sticky !important;
+  background: var(--bg-hover) !important;
+  z-index: 90 !important;
+}
+
+.wbs-rate-detail-row > *:nth-child(1),
+.wbs-rate-detail-row > *:nth-child(2) {
+  background: var(--bg-hover) !important;
+  z-index: 91;
+}
+
+/* ---------------------------------------------------------
+   Totals Row
+--------------------------------------------------------- */
+
+.wbs-totals-row {
+  display: grid;
+  grid-template-columns: var(--wbs-columns);
+  padding: 4px 6px;
+  background: var(--bg);
+  border-top: 1px solid var(--border-muted);
+  font-weight: 600;
+  position: static;
+}
+
+/* ---------------------------------------------------------
+   Financial Cells
+--------------------------------------------------------- */
+
+.wbs-fin-cell {
+  text-align: right;
+  padding-right: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-width: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Right-align financial column headers */
+
+.wbs-header .col-header:nth-child(n+5) {
+  justify-content: flex-end;
+  text-align: right;
+  padding-right: 6px;
+}
+
+.wbs-indent-1 { padding-left: 0px; }
+.wbs-indent-2 { padding-left: 8px; }
+.wbs-indent-3 { padding-left: 16px; }
+.wbs-indent-4 { padding-left: 24px; }
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-shrink: 0;
+}
+
+.footer {
+  padding: 8px 16px;
+  font-size: 11px;
+  color: var(--text-muted);
+  border-top: 1px solid var(--border);
+  background: var(--bg);
+  flex-shrink: 0;
+}

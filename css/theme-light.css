@@ -1,0 +1,123 @@
+/* Light mode theme variables */
+
+:root[data-theme="light"] {
+  --bg: #ffffff;
+  --bg-sidebar: #f9fafb;
+  --bg-panel: #f9fafb;
+  --bg-header: #f3f4f6;
+  --bg-hover: #f3f4f6;
+  --bg-muted: #e5e7eb;
+
+  --text: #111827;
+  --text-muted: #6b7280;
+
+  --border: #d1d5db;
+  --border-muted: #e5e7eb;
+
+  --accent: #2563eb;
+
+  --pill-estimate: #1d4ed8; 
+  --pill-tag: #047857; 
+  --pill-unit: #a855f7; 
+  --pill-text: #111827; 
+  --pill-border: #9ca3af;
+}
+
+/* Estimate Types */
+:root[data-theme="light"] .pill[data-category="estimateType"] {
+  border-color: var(--pill-estimate);
+  color: var(--pill-estimate);
+  background: rgba(29, 78, 216, 0.05);
+}
+
+/* Tags */
+:root[data-theme="light"] .pill[data-category="tag"] {
+  border-color: var(--pill-tag);
+  color: var(--pill-tag);
+  background: rgba(4, 120, 87, 0.05);
+}
+
+/* Units */
+:root[data-theme="light"] .pill[data-category="unit"] {
+  border-color: var(--pill-unit);
+  color: var(--pill-unit);
+  background: rgba(168, 85, 247, 0.05);
+}
+
+:root[data-theme="light"] .pill:hover {
+  background: rgba(0, 0, 0, 0.08);
+}
+
+/* Adjust shadows for light mode */
+:root[data-theme="light"] .modal-overlay {
+  background: rgba(0, 0, 0, 0.5);
+}
+
+:root[data-theme="light"] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.4);
+}
+
+:root[data-theme="light"] .modal {
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.05), 0 20px 40px rgba(0, 0, 0, 0.15);
+}
+
+:root[data-theme="light"] .modal-content {
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+:root[data-theme="light"] .sidebar {
+  box-shadow: 2px 0 8px rgba(0, 0, 0, 0.1);
+}
+
+/* Input fields in light mode */
+:root[data-theme="light"] input,
+:root[data-theme="light"] select,
+:root[data-theme="light"] textarea {
+  background: var(--bg);
+  border-color: var(--border);
+  color: var(--text);
+}
+
+:root[data-theme="light"] input:focus,
+:root[data-theme="light"] select:focus,
+:root[data-theme="light"] textarea:focus {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+/* Button adjustments */
+:root[data-theme="light"] .btn-primary {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+:root[data-theme="light"] .btn-primary:hover {
+  background: #1d4ed8;
+  border-color: #1d4ed8;
+}
+
+:root[data-theme="light"] .btn-secondary {
+  background: transparent;
+  border-color: var(--border);
+  color: var(--text);
+}
+
+:root[data-theme="light"] .btn-secondary:hover {
+  background: var(--bg-hover);
+}
+
+/* WBS row hover */
+:root[data-theme="light"] .wbs-row:hover {
+  background: var(--bg-hover);
+}
+
+:root[data-theme="light"] .wbs-row-selected {
+  background: rgba(37, 99, 235, 0.1);
+  border-left: 3px solid var(--accent);
+}
+
+/* Labor input active row */
+:root[data-theme="light"] .wbs-row-active {
+  background: rgba(37, 99, 235, 0.08);
+}

@@ -1,0 +1,270 @@
+{
+  "generic": [
+    {
+      "id": "e1-executive",
+      "label": "Vice President",
+      "jobFamily": "Executive",
+      "jobLevel": "E1",
+      "cost": 120,
+      "sell": 200,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "l3-director",
+      "label": "Director",
+      "jobFamily": "Management",
+      "jobLevel": "L3",
+      "cost": 100,
+      "sell": 170,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "l2-snr-manager",
+      "label": "Snr. Manager",
+      "jobFamily": "Management",
+      "jobLevel": "L2",
+      "cost": 85,
+      "sell": 150,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "l1-manager",
+      "label": "Manager",
+      "jobFamily": "Management",
+      "jobLevel": "L1",
+      "cost": 70,
+      "sell": 130,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p8-professional",
+      "label": "Level 8 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P8",
+      "cost": 75,
+      "sell": 140,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p7-professional",
+      "label": "Level 7 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P7",
+      "cost": 70,
+      "sell": 135,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p6-professional",
+      "label": "Level 6 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P6",
+      "cost": 65,
+      "sell": 130,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p5-professional",
+      "label": "Level 5 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P5",
+      "cost": 60,
+      "sell": 120,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p4-professional",
+      "label": "Level 4 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P4",
+      "cost": 55,
+      "sell": 110,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p3-professional",
+      "label": "Level 3 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P3",
+      "cost": 50,
+      "sell": 100,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p2-professional",
+      "label": "Level 2 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P2",
+      "cost": 45,
+      "sell": 90,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p1-professional",
+      "label": "Level 1 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P1",
+      "cost": 40,
+      "sell": 80,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "p0-professional",
+      "label": "Level 0 Professional",
+      "jobFamily": "Professional",
+      "jobLevel": "P0",
+      "cost": 35,
+      "sell": 70,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "t5-technician",
+      "label": "Level 5 Tech",
+      "jobFamily": "Technician",
+      "jobLevel": "T5",
+      "cost": 50,
+      "sell": 100,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "t4-technician",
+      "label": "Level 4 Tech",
+      "jobFamily": "Technician",
+      "jobLevel": "T4",
+      "cost": 45,
+      "sell": 90,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "t3-technician",
+      "label": "Level 3 Tech",
+      "jobFamily": "Technician",
+      "jobLevel": "T3",
+      "cost": 40,
+      "sell": 80,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "t2-technician",
+      "label": "Level 2 Tech",
+      "jobFamily": "Technician",
+      "jobLevel": "T2",
+      "cost": 35,
+      "sell": 70,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "t1-technician",
+      "label": "Level 1 Tech",
+      "jobFamily": "Technician",
+      "jobLevel": "T1",
+      "cost": 30,
+      "sell": 60,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "s4-admin",
+      "label": "Level 4 Admin",
+      "jobFamily": "Admin",
+      "jobLevel": "S4",
+      "cost": 35,
+      "sell": 70,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "s3-admin",
+      "label": "Level 3 Admin",
+      "jobFamily": "Admin",
+      "jobLevel": "S3",
+      "cost": 30,
+      "sell": 60,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "s2-admin",
+      "label": "Level 2 Admin",
+      "jobFamily": "Admin",
+      "jobLevel": "S2",
+      "cost": 25,
+      "sell": 50,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "s1-admin",
+      "label": "Level 1 Admin",
+      "jobFamily": "Admin",
+      "jobLevel": "S1",
+      "cost": 22,
+      "sell": 45,
+      "otMultiplier": 1.5
+    }
+  ],
+  "named": [
+    {
+      "id": "brandon-turcotte",
+      "label": "Brandon Turcotte",
+      "location": "NB",
+      "jobLevel": "L3",
+      "businessLine": "BL002",
+      "costCentre": "Executive",
+      "cost": 105,
+      "sell": 180,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "nikki-belanger-turcotte",
+      "label": "Nikki Belanger-Turcotte",
+      "location": "ON",
+      "jobLevel": "P6",
+      "businessLine": "BL002",
+      "costCentre": "ONAC",
+      "cost": 68,
+      "sell": 135,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "isaac-turcotte",
+      "label": "Isaac Turcotte",
+      "location": "ON",
+      "jobLevel": "T3",
+      "businessLine": "BL002",
+      "costCentre": "ONAC",
+      "cost": 42,
+      "sell": 85,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "noah-turcotte",
+      "label": "Noah Turcotte",
+      "location": "BC",
+      "jobLevel": "S2",
+      "businessLine": "BL002",
+      "costCentre": "British Columbia",
+      "cost": 26,
+      "sell": 52,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "olivia-turcotte",
+      "label": "Olivia Turcotte",
+      "location": "QC",
+      "jobLevel": "P4",
+      "businessLine": "BL001",
+      "costCentre": "Quebec-GEM",
+      "cost": 58,
+      "sell": 115,
+      "otMultiplier": 1.5
+    },
+    {
+      "id": "sophia-turcotte",
+      "label": "Sophia Turcotte",
+      "location": "AB",
+      "jobLevel": "P2",
+      "businessLine": "BL002",
+      "costCentre": "P&N Ground",
+      "cost": 48,
+      "sell": 95,
+      "otMultiplier": 1.5
+    }
+  ]
+}

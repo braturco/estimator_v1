@@ -1,0 +1,33 @@
+/* Base resets and typography */
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+h2 {
+  font-size: 14px;
+  margin: 12px 0 6px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+.header-note {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.footer {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
