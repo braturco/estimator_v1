@@ -199,7 +199,43 @@ window.Calculations = (function () {
     const container = document.getElementById("wbsContainer");
     if (!container) return;
 
-    async function updateNodeCells(node) {
+    // Update WBS node rows (tasks, phases, subtasks)
+    function updateNodeRow(node) {
+      const nodeRow = container.querySelector(`.wbs-row[data-id="${node.id}"]:not(.labor-activity-row)`);
+      if (nodeRow) {
+        console.log(`📊 Updating node ${node.id} (${node.name}): DL=${node.directLabour}, Rev=${node.netRevenue}`);
+        const cells = nodeRow.querySelectorAll(".wbs-fin-cell");
+        if (cells.length >= 8) {
+          cells[0].textContent = formatMoney(node.directLabour);
+          cells[1].textContent = formatMoney(node.expenses);
+          cells[2].textContent = formatMoney(node.burdened);
+          cells[3].textContent = formatMoney(node.netRevenue);
+          cells[4].textContent = formatMoney(node.grossRevenue);
+          cells[5].textContent = formatPercent(node.nm);
+          cells[6].textContent = formatPercent(node.gm);
+          cells[7].textContent = formatMoney(node.dlm);
+        } else {
+          console.warn(`⚠️ Node ${node.id} row found but has ${cells.length} cells, expected 8`);
+        }
+      } else {
+        console.warn(`⚠️ No row found for node ${node.id}`);
+      }
+      
+      // Recurse to children
+      if (node.children && node.children.length > 0) {
+        for (const child of node.children) {
+          updateNodeRow(child);
+        }
+      }
+    }
+    
+    // Update all WBS nodes
+    for (const node of WBS_DATA) {
+      updateNodeRow(node);
+    }
+
+    // Update activity rows
+    async function updateNodeActivities(node) {
       const row = container.querySelector(`.wbs-row[data-id="${node.id}"]`);
       if (row && !row.classList.contains('labor-activity-row')) {
         const cells = row.querySelectorAll(".wbs-fin-cell");
@@ -293,13 +329,13 @@ window.Calculations = (function () {
       
       if (node.children && node.children.length > 0) {
         for (const child of node.children) {
-          await updateNodeCells(child);
+          await updateNodeActivities(child);
         }
       }
     }
 
     for (const node of WBS_DATA) {
-      await updateNodeCells(node);
+      await updateNodeActivities(node);
     }
     
     // Update totals row
@@ -310,8 +346,11 @@ window.Calculations = (function () {
 
   // Recalculate without re-rendering (preserves focus)
   async function recalculate() {
+    console.log("🔄 Starting recalculate...");
     await calculateWBS();
+    console.log("✅ WBS calculated, now updating cells...");
     await updateFinancialCells();
+    console.log("✅ Cells updated");
   }
 
   // Recalculate and force full re-render

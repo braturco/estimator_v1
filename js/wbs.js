@@ -1071,14 +1071,6 @@ function renderWBS() {
     <div class="col-header" data-col="1">Activity<div class="col-resize-handle"></div></div>
   `;
 
-  // Add labor pricing method expander
-  const laborExpandIcon = window.expandedPricingMethods.labor ? "▼" : "▶";
-  columnTemplate += `
-    <div class="col-header pricing-method-header" id="laborMethodHeader" style="cursor: pointer; user-select: none; font-weight: 600;" title="Click to expand/collapse labor columns">
-      <span style="margin-right: 6px; font-size: 10px;">${laborExpandIcon}</span>Labor
-    </div>
-  `;
-
   // Add labor resource columns if expanded
   if (window.expandedPricingMethods.labor) {
     laborResources.forEach((res, idx) => {
@@ -1117,7 +1109,7 @@ function renderWBS() {
   `;
 
   // Build CSS column template
-  let columnWidth = "100px 260px 90px"; // WBS, Activity, Labor expander
+  let columnWidth = "100px 260px"; // WBS, Activity
   if (window.expandedPricingMethods.labor) {
     for (let i = 0; i < laborResources.length; i++) {
       columnWidth += " 75px 75px";
@@ -1130,37 +1122,6 @@ function renderWBS() {
   headerRow.className = "wbs-row wbs-header";
   headerRow.innerHTML = columnTemplate;
   container.appendChild(headerRow);
-
-  // Wire up labor method header toggle
-  const laborMethodHeader = headerRow.querySelector("#laborMethodHeader");
-  if (laborMethodHeader) {
-    laborMethodHeader.addEventListener("click", () => {
-      window.expandedPricingMethods.labor = !window.expandedPricingMethods.labor;
-      
-      // Initialize labor data if expanding for first time
-      if (window.expandedPricingMethods.labor && laborResources.length === 0) {
-        laborResources.push({
-          id: crypto.randomUUID(),
-          name: "Resource 1",
-          resourceId: "p5-professional",
-          chargeoutRate: 100,
-          costRate: 60
-        });
-      }
-      
-      // Show/hide resource and activity buttons
-      const addResourceBtn = document.getElementById("addResourceBtn");
-      const addActivityBtn = document.getElementById("addActivityBtn");
-      if (addResourceBtn) {
-        addResourceBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
-      }
-      if (addActivityBtn) {
-        addActivityBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
-      }
-      
-      renderWBS();
-    });
-  }
 
   // Wire up resource rate toggles - all of them
   if (window.expandedPricingMethods.labor) {
@@ -1482,10 +1443,13 @@ function renderWBS() {
 function wireTopButtons() {
   const phaseBtn = document.getElementById("addPhaseBtn");
   const taskBtn = document.getElementById("addTaskBtn");
-  const laborBtn = document.getElementById("window.expandedPricingMethods.laborBtn");
+  const laborResourcesToggle = document.getElementById("laborResourcesToggle");
   const addResourceBtn = document.getElementById("addResourceBtn");
   const addActivityBtn = document.getElementById("addActivityBtn");
-  const recalculateBtn = document.getElementById("recalculateBtn");
+  const expensesToggle = document.getElementById("expensesToggle");
+  const addExpenseBtn = document.getElementById("addExpenseBtn");
+  const usagesToggle = document.getElementById("usagesToggle");
+  const addUsageBtn = document.getElementById("addUsageBtn");
   const resourceManagerBtn = document.getElementById("resourceManagerBtn");
   const toolbar = document.querySelector(".wbs-toolbar");
 
@@ -1514,6 +1478,68 @@ function wireTopButtons() {
     taskBtn.onclick = () => {
       if (!selectedNodeId) return;
       addChildById(selectedNodeId);
+    };
+  }
+
+  if (laborResourcesToggle) {
+    laborResourcesToggle.onclick = () => {
+      window.expandedPricingMethods.labor = !window.expandedPricingMethods.labor;
+      
+      // Update button icon
+      laborResourcesToggle.textContent = (window.expandedPricingMethods.labor ? "⊟" : "⊞") + " Labor";
+      
+      // Initialize labor data if expanding for first time
+      if (window.expandedPricingMethods.labor && laborResources.length === 0) {
+        laborResources.push({
+          id: crypto.randomUUID(),
+          name: "Resource 1",
+          resourceId: "p5-professional",
+          chargeoutRate: 100,
+          costRate: 60
+        });
+      }
+      
+      // Show/hide resource and activity buttons
+      if (addResourceBtn) {
+        addResourceBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
+      }
+      if (addActivityBtn) {
+        addActivityBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
+      }
+      
+      renderWBS();
+    };
+  }
+
+  if (expensesToggle) {
+    expensesToggle.onclick = () => {
+      window.expandedPricingMethods.expense = !window.expandedPricingMethods.expense;
+      
+      // Update button icon
+      expensesToggle.textContent = (window.expandedPricingMethods.expense ? "⊟" : "⊞") + " Expenses";
+      
+      // Show/hide expense button
+      if (addExpenseBtn) {
+        addExpenseBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
+      }
+      
+      renderWBS();
+    };
+  }
+
+  if (usagesToggle) {
+    usagesToggle.onclick = () => {
+      window.expandedPricingMethods.usages = !window.expandedPricingMethods.usages;
+      
+      // Update button icon
+      usagesToggle.textContent = (window.expandedPricingMethods.usages ? "⊟" : "⊞") + " Usages";
+      
+      // Show/hide usage button
+      if (addUsageBtn) {
+        addUsageBtn.style.display = window.expandedPricingMethods.usages ? "inline-flex" : "none";
+      }
+      
+      renderWBS();
     };
   }
 
@@ -1655,23 +1681,22 @@ function wireTopButtons() {
     addActivityBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
   }
 
-  if (recalculateBtn) {
-    recalculateBtn.onclick = async () => {
-      if (window.Calculations && window.Calculations.recalculateAndRender) {
-        recalculateBtn.disabled = true;
-        recalculateBtn.textContent = "🧮 Calculating...";
-        try {
-          await window.Calculations.recalculateAndRender();
-          console.log("✅ Manual recalculation complete");
-        } catch (err) {
-          console.error("❌ Recalculation failed:", err);
-          alert("Calculation failed. Check console for details.");
-        } finally {
-          recalculateBtn.disabled = false;
-          recalculateBtn.textContent = "🧮 Recalculate";
-        }
-      }
+  if (addExpenseBtn) {
+    addExpenseBtn.onclick = () => {
+      if (!selectedNodeId) return;
+      alert("Expense functionality coming soon!");
+      // TODO: Implement expense form/modal
     };
+    addExpenseBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
+  }
+
+  if (addUsageBtn) {
+    addUsageBtn.onclick = () => {
+      if (!selectedNodeId) return;
+      alert("Usage/Unit functionality coming soon!");
+      // TODO: Implement usage form/modal
+    };
+    addUsageBtn.style.display = window.expandedPricingMethods.usages ? "inline-flex" : "none";
   }
 
   if (resourceManagerBtn) {

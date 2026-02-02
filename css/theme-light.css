@@ -23,6 +23,42 @@
   --pill-border: #9ca3af;
 }
 
+/* Light mode frozen column backgrounds */
+:root[data-theme="light"] .wbs-row > *:nth-child(1),
+:root[data-theme="light"] .wbs-row > *:nth-child(2) {
+  background: #f9fafb !important;
+}
+
+:root[data-theme="light"] .wbs-header > *:nth-child(1),
+:root[data-theme="light"] .wbs-header > *:nth-child(2) {
+  background: #f9fafb !important;
+}
+
+:root[data-theme="light"] .labor-activity-row > *:nth-child(1),
+:root[data-theme="light"] .labor-activity-row > *:nth-child(2) {
+  background: #f9fafb !important;
+}
+
+:root[data-theme="light"] .wbs-row-selected > *:nth-child(1),
+:root[data-theme="light"] .wbs-row-selected > *:nth-child(2) {
+  background: rgba(37, 99, 235, 0.12) !important;
+}
+
+:root[data-theme="light"] .wbs-row-active > *:nth-child(1),
+:root[data-theme="light"] .wbs-row-active > *:nth-child(2) {
+  background: rgba(56, 189, 248, 0.10) !important;
+}
+
+:root[data-theme="light"] .wbs-rate-detail-row > *:nth-child(1),
+:root[data-theme="light"] .wbs-rate-detail-row > *:nth-child(2) {
+  background: #f3f4f6 !important;
+}
+
+:root[data-theme="light"] .wbs-totals-row > *:nth-child(1),
+:root[data-theme="light"] .wbs-totals-row > *:nth-child(2) {
+  background: #ffffff !important;
+}
+
 /* Estimate Types */
 :root[data-theme="light"] .pill[data-category="estimateType"] {
   border-color: var(--pill-estimate);

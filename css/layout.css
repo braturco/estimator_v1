@@ -252,6 +252,49 @@ body {
   overflow: visible;
 }
 
+/* Freeze first two columns (WBS and Activity) */
+.wbs-row > *:nth-child(1),
+.wbs-row > *:nth-child(2) {
+  position: sticky;
+  background: #020617 !important;
+  z-index: 10;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.wbs-row > *:nth-child(1) {
+  left: 0;
+}
+
+.wbs-row > *:nth-child(2) {
+  left: 100px; /* Width of first column */
+  padding-left: 8px; /* Extra padding for visual separation */
+}
+
+/* Header needs higher z-index and darker background */
+.wbs-header > *:nth-child(1),
+.wbs-header > *:nth-child(2) {
+  z-index: 101;
+  background: #020617 !important;
+}
+
+/* Activity rows need their own background */
+.labor-activity-row > *:nth-child(1),
+.labor-activity-row > *:nth-child(2) {
+  background: #020617 !important;
+}
+
+/* Selected row frozen columns */
+.wbs-row-selected > *:nth-child(1),
+.wbs-row-selected > *:nth-child(2) {
+  background: rgba(96, 165, 250, 0.12) !important;
+}
+
+/* Active activity row frozen columns */
+.wbs-row-active > *:nth-child(1),
+.wbs-row-active > *:nth-child(2) {
+  background: rgba(56, 189, 248, 0.10) !important;
+}
+
 /* Sticky header */
 
 .wbs-header {
@@ -296,8 +339,19 @@ body {
 
 .wbs-rate-detail-row > *:nth-child(1),
 .wbs-rate-detail-row > *:nth-child(2) {
-  background: var(--bg-hover) !important;
+  background: #0b1120 !important;
+  position: sticky;
   z-index: 91;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.wbs-rate-detail-row > *:nth-child(1) {
+  left: 0;
+}
+
+.wbs-rate-detail-row > *:nth-child(2) {
+  left: 100px;
+  padding-left: 8px;
 }
 
 /* ---------------------------------------------------------
@@ -312,6 +366,23 @@ body {
   border-top: 1px solid var(--border-muted);
   font-weight: 600;
   position: static;
+}
+
+.wbs-totals-row > *:nth-child(1),
+.wbs-totals-row > *:nth-child(2) {
+  position: sticky;
+  background: #111827 !important;
+  z-index: 10;
+  box-shadow: 2px 0 4px rgba(0, 0, 0, 0.3);
+}
+
+.wbs-totals-row > *:nth-child(1) {
+  left: 0;
+}
+
+.wbs-totals-row > *:nth-child(2) {
+  left: 100px;
+  padding-left: 8px;
 }
 
 /* ---------------------------------------------------------
