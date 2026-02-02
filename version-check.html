@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Version Check - Estimator</title>
+  <style>
+    body {
+      font-family: system-ui, sans-serif;
+      padding: 20px;
+      background: #111827;
+      color: #e5e7eb;
+    }
+    .check {
+      margin: 10px 0;
+      padding: 10px;
+      background: #1f2937;
+      border-radius: 4px;
+    }
+    .pass { color: #10b981; }
+    .fail { color: #ef4444; }
+  </style>
+</head>
+<body>
+  <h1>Estimator Version Check</h1>
+  <p>This page helps diagnose caching issues.</p>
+  
+  <div class="check">
+    <strong>Current Time:</strong> <span id="time"></span>
+  </div>
+  
+  <div class="check">
+    <strong>Page Load Time:</strong> <span id="loadTime"></span>
+  </div>
+  
+  <div class="check">
+    <strong>Cache Status:</strong> <span id="cacheStatus"></span>
+  </div>
+  
+  <div class="check">
+    <strong>Expected Version:</strong> Labor Mode button should be REMOVED, replaced with "Labor" column header
+  </div>
+  
+  <div class="check">
+    <strong>Instructions:</strong>
+    <ol>
+      <li>Take note of the time above</li>
+      <li>Go to the main app: <a href="index.html" style="color: #60a5fa;">index.html</a></li>
+      <li>Look for a button that says "Labor Mode" in the toolbar at the top</li>
+      <li>If you see "Labor Mode" button → cache issue</li>
+      <li>If you see "▶ Labor" as a column header in the WBS grid → correct version</li>
+    </ol>
+  </div>
+  
+  <div class="check">
+    <strong>Cache Clear Instructions:</strong>
+    <ul>
+      <li><strong>Chrome/Edge:</strong> Ctrl+Shift+Delete, select "Cached images and files", click Clear</li>
+      <li><strong>Firefox:</strong> Ctrl+Shift+Delete, select "Cache", click Clear Now</li>
+      <li><strong>Or try:</strong> Hard refresh with Ctrl+Shift+R or Ctrl+F5</li>
+      <li><strong>Nuclear option:</strong> Clear all browsing data for last 24 hours</li>
+    </ul>
+  </div>
+  
+  <script>
+    document.getElementById('time').textContent = new Date().toLocaleString();
+    document.getElementById('loadTime').textContent = new Date().getTime();
+    
+    const isFromCache = performance.getEntriesByType('navigation')[0]?.transferSize === 0;
+    const statusEl = document.getElementById('cacheStatus');
+    statusEl.textContent = isFromCache ? 'FROM CACHE (may be stale)' : 'FRESH LOAD';
+    statusEl.className = isFromCache ? 'fail' : 'pass';
+  </script>
+</body>
+</html>
