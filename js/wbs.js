@@ -1067,14 +1067,6 @@ function renderWBS() {
 
   // Add labor columns if in labor mode
   if (laborMode) {
-    // Add expander column before resources
-    const expandIcon = showResourceRates ? "▼" : "▶";
-    columnTemplate += `
-      <div class="col-header" style="text-align: center; cursor: pointer; font-size: 10px; padding: 0 4px;" id="resourceRateToggle" title="Toggle rate details">
-        ${expandIcon}
-      </div>
-    `;
-    
     laborResources.forEach((res, idx) => {
       const headerOddClass = (idx % 2 === 1) ? " odd-resource-col" : "";
       const hasOverride = res.overrideCostReg !== undefined || res.overrideCostOT !== undefined || 
@@ -1082,9 +1074,13 @@ function renderWBS() {
       const overrideIndicator = hasOverride ? " <span style='color: var(--accent); font-weight: 700;'>*</span>" : "";
       const titleAttr = hasOverride ? "title='Has rate overrides. Right-click to edit.'" : "title='Double-click to change, right-click for rate overrides'";
       
+      // Show expander toggle only on first resource
+      const expandIcon = showResourceRates ? "▼" : "▶";
+      const expanderHtml = idx === 0 ? `<span id="resourceRateToggle" style="cursor: pointer; margin-right: 6px; font-size: 10px;" title="Toggle rate details">${expandIcon}</span>` : '';
+      
       columnTemplate += `
         <div class="col-header resource-header${headerOddClass}" data-resource-id="${res.id}" draggable="true" style="text-align: center; font-size: 11px; grid-column: span 2; cursor: pointer; user-select: none;" ${titleAttr}>
-          ${res.name}${overrideIndicator}
+          ${expanderHtml}${res.name}${overrideIndicator}
         </div>
       `;
     });
@@ -1095,21 +1091,20 @@ function renderWBS() {
   }
 
   columnTemplate += `
-    <div class="col-header" data-col="${laborMode ? 3 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 4 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 5 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 6 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 7 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 8 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 9 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 10 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 11 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 2 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 3 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 4 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 5 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 6 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 7 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 8 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 9 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 10 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
   `;
 
   // Build CSS column template
   let columnWidth = "100px 260px";
   if (laborMode) {
-    columnWidth += " 32px"; // Expander column
     for (let i = 0; i < laborResources.length; i++) {
       columnWidth += " 75px 75px";
     }

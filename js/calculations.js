@@ -195,13 +195,13 @@ window.Calculations = (function () {
   }
 
   // Update financial cells without full re-render (preserves focus)
-  function updateFinancialCells() {
+  async function updateFinancialCells() {
     const container = document.getElementById("wbsContainer");
     if (!container) return;
 
-    function updateNodeCells(node) {
+    async function updateNodeCells(node) {
       const row = container.querySelector(`.wbs-row[data-id="${node.id}"]`);
-      if (row) {
+      if (row && !row.classList.contains('labor-activity-row')) {
         const cells = row.querySelectorAll(".wbs-fin-cell");
         if (cells.length >= 8) {
           cells[0].textContent = formatMoney(node.directLabour);
@@ -214,12 +214,93 @@ window.Calculations = (function () {
           cells[7].textContent = formatMoney(node.dlm);
         }
       }
+      
+      // Update activity rows for this node
+      const activities = window.laborActivities && window.laborActivities[node.id];
+      if (activities && Array.isArray(activities.activities)) {
+        for (const activity of activities.activities) {
+          const activityRow = container.querySelector(`.labor-activity-row[data-activity-id="${activity.id}"]`);
+          if (activityRow) {
+            const cells = activityRow.querySelectorAll(".wbs-fin-cell");
+            if (cells.length >= 8) {
+              // Calculate activity financials
+              let directLaborReg = 0;
+              let directLaborOT = 0;
+              let revenue = 0;
+
+              for (const columnId in activity.hours) {
+                const hours = activity.hours[columnId];
+                const regHours = Number(hours.reg || 0);
+                const otHours = Number(hours.ot || 0);
+
+                if (regHours === 0 && otHours === 0) continue;
+
+                const resource = window.laborResources.find(r => r.id === columnId);
+                if (!resource) continue;
+
+                let costRegular, costOT, sellRegular, sellOT;
+                
+                if (resource.overrideCostReg !== undefined || resource.overrideSellReg !== undefined) {
+                  costRegular = resource.overrideCostReg !== undefined ? resource.overrideCostReg : resource.costRate || 60;
+                  costOT = resource.overrideCostOT !== undefined ? resource.overrideCostOT : (costRegular * 1.5);
+                  sellRegular = resource.overrideSellReg !== undefined ? resource.overrideSellReg : resource.chargeoutRate || 120;
+                  sellOT = resource.overrideSellOT !== undefined ? resource.overrideSellOT : (sellRegular * 1.5);
+                } else {
+                  const actualResourceId = resource.resourceId || columnId;
+                  try {
+                    const rates = await window.Rates.getRates(actualResourceId);
+                    if (rates) {
+                      costRegular = rates.costRegular;
+                      costOT = rates.costOT;
+                      sellRegular = rates.sellRegular;
+                      sellOT = rates.sellOT;
+                    } else {
+                      continue;
+                    }
+                  } catch (err) {
+                    continue;
+                  }
+                }
+
+                directLaborReg += regHours * costRegular;
+                directLaborOT += otHours * costOT;
+                revenue += regHours * sellRegular + otHours * sellOT;
+              }
+
+              const directLabor = directLaborReg + directLaborOT;
+              const ohRegRate = window.getTotalOHRate ? window.getTotalOHRate('regular') : 1.10;
+              const ohOTRate = window.getTotalOHRate ? window.getTotalOHRate('overtime') : 1.10;
+              const burdenedLabor = directLaborReg * (1 + ohRegRate) + directLaborOT * (1 + ohOTRate);
+              const expenses = 0;
+              const netRevenue = revenue;
+              const grossRevenue = netRevenue * (node.gmMultiplier || 1.15);
+              const nm = netRevenue > 0 ? (netRevenue - burdenedLabor - expenses) / netRevenue : 0;
+              const gm = grossRevenue > 0 ? (grossRevenue - burdenedLabor - expenses) / grossRevenue : 0;
+              const dlm = directLabor > 0 ? (revenue - burdenedLabor) : 0;
+
+              cells[0].textContent = formatMoney(directLabor);
+              cells[1].textContent = formatMoney(expenses);
+              cells[2].textContent = formatMoney(burdenedLabor);
+              cells[3].textContent = formatMoney(netRevenue);
+              cells[4].textContent = formatMoney(grossRevenue);
+              cells[5].textContent = formatPercent(nm);
+              cells[6].textContent = formatPercent(gm);
+              cells[7].textContent = formatMoney(dlm);
+            }
+          }
+        }
+      }
+      
       if (node.children && node.children.length > 0) {
-        node.children.forEach(updateNodeCells);
+        for (const child of node.children) {
+          await updateNodeCells(child);
+        }
       }
     }
 
-    WBS_DATA.forEach(updateNodeCells);
+    for (const node of WBS_DATA) {
+      await updateNodeCells(node);
+    }
     
     // Update totals row
     if (window.renderTotalsRow) {
@@ -230,7 +311,7 @@ window.Calculations = (function () {
   // Recalculate without re-rendering (preserves focus)
   async function recalculate() {
     await calculateWBS();
-    updateFinancialCells();
+    await updateFinancialCells();
   }
 
   // Recalculate and force full re-render
