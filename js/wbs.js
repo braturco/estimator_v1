@@ -1682,15 +1682,9 @@ function openRateOverrideModal(resource) {
     title: `Rate Override - ${resource.name}`,
     content: (container) => {
       container.innerHTML = "";
-      container.style.padding = "16px";
-      container.style.maxWidth = "480px";
-
-      const intro = document.createElement("p");
-      intro.textContent = "Override the default rates for this resource. Leave blank to use default rates from the rate table.";
-      intro.style.marginBottom = "16px";
-      intro.style.color = "var(--text-muted)";
-      intro.style.fontSize = "11px";
-      container.appendChild(intro);
+      container.style.padding = "8px 10px";
+      container.style.maxWidth = "340px";
+      container.style.fontSize = "10px";
 
       // Get default rates
       const defaultCostReg = resource.costRate || 60;
@@ -1698,124 +1692,86 @@ function openRateOverrideModal(resource) {
       const defaultSellReg = resource.chargeoutRate || 120;
       const defaultSellOT = (resource.chargeoutRate || 120) * 1.5;
 
-      // Helper to create input field
-      function createRateInput(label, defaultValue, overrideValue, placeholder) {
-        const group = document.createElement("div");
-        group.style.marginBottom = "10px";
+      // Helper to create compact input field
+      function createRateInput(label, defaultValue, overrideValue) {
+        const row = document.createElement("div");
+        row.style.display = "grid";
+        row.style.gridTemplateColumns = "80px 60px 70px";
+        row.style.gap = "4px";
+        row.style.alignItems = "center";
+        row.style.marginBottom = "4px";
 
         const labelEl = document.createElement("label");
         labelEl.textContent = label;
-        labelEl.style.display = "block";
-        labelEl.style.marginBottom = "4px";
-        labelEl.style.fontWeight = "600";
-        labelEl.style.fontSize = "11px";
-
-        const inputWrapper = document.createElement("div");
-        inputWrapper.style.display = "flex";
-        inputWrapper.style.alignItems = "center";
-        inputWrapper.style.gap = "6px";
-
-        const dollarSign = document.createElement("span");
-        dollarSign.textContent = "$";
-        dollarSign.style.fontSize = "11px";
-        dollarSign.style.color = "var(--text-muted)";
+        labelEl.style.fontSize = "9px";
+        labelEl.style.color = "var(--text-muted)";
 
         const input = document.createElement("input");
         input.type = "number";
         input.step = "0.01";
         input.min = "0";
         input.value = overrideValue !== undefined ? overrideValue : "";
-        input.placeholder = placeholder || `Default: ${defaultValue.toFixed(2)}`;
-        input.style.width = "100px";
-        input.style.padding = "4px 6px";
+        input.placeholder = defaultValue.toFixed(0);
+        input.style.width = "100%";
+        input.style.padding = "2px 4px";
         input.style.border = "1px solid var(--border)";
-        input.style.borderRadius = "4px";
+        input.style.borderRadius = "3px";
         input.style.background = "var(--bg)";
         input.style.color = "var(--text)";
-        input.style.fontSize = "11px";
+        input.style.fontSize = "9px";
 
         const defaultNote = document.createElement("span");
-        defaultNote.textContent = `(Default: $${defaultValue.toFixed(0)})`;
-        defaultNote.style.fontSize = "10px";
+        defaultNote.textContent = `($${defaultValue.toFixed(0)})`;
+        defaultNote.style.fontSize = "8px";
         defaultNote.style.color = "var(--text-muted)";
 
-        inputWrapper.appendChild(dollarSign);
-        inputWrapper.appendChild(input);
-        inputWrapper.appendChild(defaultNote);
+        row.appendChild(labelEl);
+        row.appendChild(input);
+        row.appendChild(defaultNote);
 
-        group.appendChild(labelEl);
-        group.appendChild(inputWrapper);
-
-        return { group, input };
+        return { row, input };
       }
 
-      // Cost rates
-      const costSection = document.createElement("div");
-      costSection.style.marginBottom = "16px";
-      
-      const costTitle = document.createElement("h3");
-      costTitle.textContent = "Cost Rates";
-      costTitle.style.fontSize = "12px";
-      costTitle.style.marginBottom = "8px";
+      // Cost rates section
+      const costTitle = document.createElement("div");
+      costTitle.textContent = "Cost";
+      costTitle.style.fontSize = "10px";
+      costTitle.style.fontWeight = "600";
+      costTitle.style.marginBottom = "3px";
+      costTitle.style.paddingBottom = "2px";
       costTitle.style.borderBottom = "1px solid var(--border)";
-      costTitle.style.paddingBottom = "4px";
-      costSection.appendChild(costTitle);
+      container.appendChild(costTitle);
 
-      const { group: costRegGroup, input: costRegInput } = createRateInput(
-        "Regular Time Cost:",
-        defaultCostReg,
-        resource.overrideCostReg,
-        `Default: ${defaultCostReg.toFixed(2)}`
-      );
-      costSection.appendChild(costRegGroup);
+      const { row: costRegRow, input: costRegInput } = createRateInput("Reg:", defaultCostReg, resource.overrideCostReg);
+      container.appendChild(costRegRow);
 
-      const { group: costOTGroup, input: costOTInput } = createRateInput(
-        "Overtime Cost:",
-        defaultCostOT,
-        resource.overrideCostOT,
-        `Default: ${defaultCostOT.toFixed(2)}`
-      );
-      costSection.appendChild(costOTGroup);
+      const { row: costOTRow, input: costOTInput } = createRateInput("OT:", defaultCostOT, resource.overrideCostOT);
+      container.appendChild(costOTRow);
 
-      container.appendChild(costSection);
-
-      // Sell rates
-      const sellSection = document.createElement("div");
-      sellSection.style.marginBottom = "16px";
-      
-      const sellTitle = document.createElement("h3");
-      sellTitle.textContent = "Sell Rates";
-      sellTitle.style.fontSize = "12px";
-      sellTitle.style.marginBottom = "8px";
+      // Sell rates section
+      const sellTitle = document.createElement("div");
+      sellTitle.textContent = "Sell";
+      sellTitle.style.fontSize = "10px";
+      sellTitle.style.fontWeight = "600";
+      sellTitle.style.marginTop = "6px";
+      sellTitle.style.marginBottom = "3px";
+      sellTitle.style.paddingBottom = "2px";
       sellTitle.style.borderBottom = "1px solid var(--border)";
-      sellTitle.style.paddingBottom = "4px";
-      sellSection.appendChild(sellTitle);
+      container.appendChild(sellTitle);
 
-      const { group: sellRegGroup, input: sellRegInput } = createRateInput(
-        "Regular Time Sell:",
-        defaultSellReg,
-        resource.overrideSellReg,
-        `Default: ${defaultSellReg.toFixed(2)}`
-      );
-      sellSection.appendChild(sellRegGroup);
+      const { row: sellRegRow, input: sellRegInput } = createRateInput("Reg:", defaultSellReg, resource.overrideSellReg);
+      container.appendChild(sellRegRow);
 
-      const { group: sellOTGroup, input: sellOTInput } = createRateInput(
-        "Overtime Sell:",
-        defaultSellOT,
-        resource.overrideSellOT,
-        `Default: ${defaultSellOT.toFixed(2)}`
-      );
-      sellSection.appendChild(sellOTGroup);
+      const { row: sellOTRow, input: sellOTInput } = createRateInput("OT:", defaultSellOT, resource.overrideSellOT);
+      container.appendChild(sellOTRow);
 
-      container.appendChild(sellSection);
-
-      // Clear overrides button
+      // Clear button
       const clearBtn = document.createElement("button");
-      clearBtn.textContent = "Clear All Overrides";
+      clearBtn.textContent = "Clear";
       clearBtn.className = "btn btn-secondary";
-      clearBtn.style.marginTop = "8px";
-      clearBtn.style.padding = "4px 12px";
-      clearBtn.style.fontSize = "11px";
+      clearBtn.style.marginTop = "6px";
+      clearBtn.style.padding = "2px 8px";
+      clearBtn.style.fontSize = "9px";
       clearBtn.addEventListener("click", () => {
         costRegInput.value = "";
         costOTInput.value = "";
