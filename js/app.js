@@ -188,119 +188,160 @@ function openOHRatesSettings() {
     title: "OH/Burden Rate Settings",
     content: (container) => {
       container.innerHTML = "";
-      container.style.padding = "20px";
-      container.style.maxWidth = "500px";
+      container.style.padding = "16px";
+      container.style.maxWidth = "600px";
 
       const intro = document.createElement("p");
-      intro.textContent = "Set overhead/burden rates applied to direct labor costs. These are expressed as percentages (e.g., 110% = 1.10).";
-      intro.style.marginBottom = "20px";
+      intro.textContent = "Set overhead/burden rates applied to direct labor costs. Rates are expressed as percentages. Total OH = Labor Fringe + Operating Costs + Operating OH.";
+      intro.style.marginBottom = "16px";
       intro.style.color = "var(--text-muted)";
-      intro.style.fontSize = "13px";
+      intro.style.fontSize = "11px";
       container.appendChild(intro);
 
-      // Regular time OH
-      const regGroup = document.createElement("div");
-      regGroup.style.marginBottom = "16px";
+      const createRateSection = (title, type) => {
+        const section = document.createElement("div");
+        section.style.marginBottom = "20px";
+        section.style.padding = "12px";
+        section.style.border = "1px solid var(--border)";
+        section.style.borderRadius = "4px";
+        section.style.background = "var(--bg-hover)";
 
-      const regLabel = document.createElement("label");
-      regLabel.textContent = "Regular Time OH/Burden:";
-      regLabel.style.display = "block";
-      regLabel.style.marginBottom = "8px";
-      regLabel.style.fontWeight = "600";
-      regLabel.style.fontSize = "13px";
+        const sectionTitle = document.createElement("h3");
+        sectionTitle.textContent = title;
+        sectionTitle.style.margin = "0 0 12px 0";
+        sectionTitle.style.fontSize = "12px";
+        sectionTitle.style.fontWeight = "600";
+        sectionTitle.style.textTransform = "uppercase";
+        section.appendChild(sectionTitle);
 
-      const regInputWrapper = document.createElement("div");
-      regInputWrapper.style.display = "flex";
-      regInputWrapper.style.alignItems = "center";
-      regInputWrapper.style.gap = "8px";
+        const currentRates = window.ohRates[type];
 
-      const regInput = document.createElement("input");
-      regInput.type = "number";
-      regInput.step = "0.01";
-      regInput.min = "0";
-      regInput.value = ((window.ohRates?.regular || 1.10) * 100).toFixed(0);
-      regInput.style.width = "100px";
-      regInput.style.padding = "8px";
-      regInput.style.border = "1px solid var(--border)";
-      regInput.style.borderRadius = "4px";
-      regInput.style.background = "var(--bg)";
-      regInput.style.color = "var(--text)";
-      regInput.style.fontSize = "13px";
+        const createInput = (label, value, description) => {
+          const group = document.createElement("div");
+          group.style.marginBottom = "10px";
 
-      const regPercent = document.createElement("span");
-      regPercent.textContent = "%";
-      regPercent.style.fontSize = "13px";
+          const labelEl = document.createElement("label");
+          labelEl.textContent = label;
+          labelEl.style.display = "block";
+          labelEl.style.marginBottom = "4px";
+          labelEl.style.fontSize = "11px";
+          labelEl.style.fontWeight = "600";
 
-      regInputWrapper.appendChild(regInput);
-      regInputWrapper.appendChild(regPercent);
+          const desc = document.createElement("div");
+          desc.textContent = description;
+          desc.style.fontSize = "10px";
+          desc.style.color = "var(--text-muted)";
+          desc.style.marginBottom = "4px";
 
-      regGroup.appendChild(regLabel);
-      regGroup.appendChild(regInputWrapper);
-      container.appendChild(regGroup);
+          const inputWrapper = document.createElement("div");
+          inputWrapper.style.display = "flex";
+          inputWrapper.style.alignItems = "center";
+          inputWrapper.style.gap = "6px";
 
-      // Overtime OH
-      const otGroup = document.createElement("div");
-      otGroup.style.marginBottom = "16px";
+          const input = document.createElement("input");
+          input.type = "number";
+          input.step = "0.01";
+          input.min = "0";
+          input.value = (value * 100).toFixed(1);
+          input.style.width = "80px";
+          input.style.padding = "4px 6px";
+          input.style.border = "1px solid var(--border)";
+          input.style.borderRadius = "4px";
+          input.style.background = "var(--bg)";
+          input.style.color = "var(--text)";
+          input.style.fontSize = "11px";
 
-      const otLabel = document.createElement("label");
-      otLabel.textContent = "Overtime OH/Burden:";
-      otLabel.style.display = "block";
-      otLabel.style.marginBottom = "8px";
-      otLabel.style.fontWeight = "600";
-      otLabel.style.fontSize = "13px";
+          const percent = document.createElement("span");
+          percent.textContent = "%";
+          percent.style.fontSize = "11px";
 
-      const otInputWrapper = document.createElement("div");
-      otInputWrapper.style.display = "flex";
-      otInputWrapper.style.alignItems = "center";
-      otInputWrapper.style.gap = "8px";
+          inputWrapper.appendChild(input);
+          inputWrapper.appendChild(percent);
 
-      const otInput = document.createElement("input");
-      otInput.type = "number";
-      otInput.step = "0.01";
-      otInput.min = "0";
-      otInput.value = ((window.ohRates?.overtime || 1.10) * 100).toFixed(0);
-      otInput.style.width = "100px";
-      otInput.style.padding = "8px";
-      otInput.style.border = "1px solid var(--border)";
-      otInput.style.borderRadius = "4px";
-      otInput.style.background = "var(--bg)";
-      otInput.style.color = "var(--text)";
-      otInput.style.fontSize = "13px";
+          group.appendChild(labelEl);
+          group.appendChild(desc);
+          group.appendChild(inputWrapper);
+          section.appendChild(group);
 
-      const otPercent = document.createElement("span");
-      otPercent.textContent = "%";
-      otPercent.style.fontSize = "13px";
+          return input;
+        };
 
-      otInputWrapper.appendChild(otInput);
-      otInputWrapper.appendChild(otPercent);
+        const laborFringeInput = createInput(
+          "Labor Fringe",
+          currentRates.laborFringe,
+          "Benefits, payroll taxes, etc."
+        );
+        const operatingCostsInput = createInput(
+          "Operating Costs",
+          currentRates.operatingCosts,
+          "Facility, utilities, insurance, etc."
+        );
+        const operatingOHInput = createInput(
+          "Operating OH",
+          currentRates.operatingOH,
+          "General & administrative overhead"
+        );
 
-      otGroup.appendChild(otLabel);
-      otGroup.appendChild(otInputWrapper);
-      container.appendChild(otGroup);
+        // Total display
+        const totalDiv = document.createElement("div");
+        totalDiv.style.marginTop = "12px";
+        totalDiv.style.padding = "8px";
+        totalDiv.style.background = "var(--bg)";
+        totalDiv.style.borderRadius = "4px";
+        totalDiv.style.fontSize = "12px";
+        totalDiv.style.fontWeight = "600";
+
+        const updateTotal = () => {
+          const total = (
+            parseFloat(laborFringeInput.value) +
+            parseFloat(operatingCostsInput.value) +
+            parseFloat(operatingOHInput.value)
+          ).toFixed(1);
+          totalDiv.textContent = `Total ${title}: ${total}%`;
+        };
+
+        laborFringeInput.addEventListener("input", updateTotal);
+        operatingCostsInput.addEventListener("input", updateTotal);
+        operatingOHInput.addEventListener("input", updateTotal);
+        updateTotal();
+
+        section.appendChild(totalDiv);
+
+        return { section, laborFringeInput, operatingCostsInput, operatingOHInput };
+      };
+
+      const regSection = createRateSection("Regular Time", "regular");
+      container.appendChild(regSection.section);
+
+      const otSection = createRateSection("Overtime", "overtime");
+      container.appendChild(otSection.section);
 
       // Example
       const example = document.createElement("div");
-      example.style.marginTop = "20px";
-      example.style.padding = "12px";
-      example.style.background = "var(--bg-muted)";
+      example.style.marginTop = "12px";
+      example.style.padding = "10px";
+      example.style.background = "var(--bg-hover)";
       example.style.borderRadius = "4px";
-      example.style.fontSize = "12px";
+      example.style.fontSize = "10px";
       example.style.color = "var(--text-muted)";
       example.innerHTML = `
-        <strong>Example:</strong><br/>
-        110% OH = Direct Labor × 2.10 (DL + 110% OH)<br/>
-        If DL = $1000, Burdened = $2100
+        <strong>Example:</strong> If DL = $1000 and Total OH = 110%, then Burdened = $1000 × (1 + 1.10) = $2,100
       `;
       container.appendChild(example);
 
       // Save callback
       container._saveCallback = () => {
-        const regValue = parseFloat(regInput.value) || 110;
-        const otValue = parseFloat(otInput.value) || 110;
-
         window.ohRates = {
-          regular: regValue / 100,
-          overtime: otValue / 100
+          regular: {
+            laborFringe: parseFloat(regSection.laborFringeInput.value) / 100,
+            operatingCosts: parseFloat(regSection.operatingCostsInput.value) / 100,
+            operatingOH: parseFloat(regSection.operatingOHInput.value) / 100
+          },
+          overtime: {
+            laborFringe: parseFloat(otSection.laborFringeInput.value) / 100,
+            operatingCosts: parseFloat(otSection.operatingCostsInput.value) / 100,
+            operatingOH: parseFloat(otSection.operatingOHInput.value) / 100
+          }
         };
 
         console.log("✅ OH Rates updated:", window.ohRates);

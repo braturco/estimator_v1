@@ -40,10 +40,25 @@ window.laborMode = false;
 window.laborResources = [];  // Global resource list for labor mode
 window.laborActivities = {};  // [taskId] = [ { id, name, hours: { resourceId_reg, resourceId_ot } } ]
 
-// OH/Burden rates (as multipliers on direct labor)
+// OH/Burden rates (as percentages/multipliers on direct labor)
+// Three components: Labor Fringe, Operating Costs, and Operating OH
 window.ohRates = {
-  regular: 1.10,  // 110% for regular time
-  overtime: 1.10  // 110% for overtime (can be different)
+  regular: {
+    laborFringe: 0.35,     // 35% for labor fringe (benefits, etc.)
+    operatingCosts: 0.45,  // 45% for operating costs
+    operatingOH: 0.30      // 30% for operating OH
+  },
+  overtime: {
+    laborFringe: 0.35,     // 35% for labor fringe
+    operatingCosts: 0.45,  // 45% for operating costs
+    operatingOH: 0.30      // 30% for operating OH
+  }
+};
+
+// Helper to get total OH rate (sum of components)
+window.getTotalOHRate = function(type) {
+  const rates = window.ohRates[type] || window.ohRates.regular;
+  return rates.laborFringe + rates.operatingCosts + rates.operatingOH;
 };
 
 // wbsPills[wbsNodeId].laborData will hold labor estimate details per node

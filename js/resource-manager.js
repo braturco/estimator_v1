@@ -1192,8 +1192,8 @@ window.ResourceManager = (function () {
 
       const table = document.createElement("div");
       table.style.display = "grid";
-      table.style.gridTemplateColumns = editable ? "2fr 1.5fr 1fr 1fr 1fr 1fr auto" : "2fr 1.5fr 1fr 1fr 1fr 1fr";
-      table.style.gap = "6px";
+      table.style.gridTemplateColumns = editable ? "2fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr auto" : "2fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr";
+      table.style.gap = "4px";
       table.style.fontSize = "11px";
 
       // Header

@@ -76,12 +76,12 @@ window.Calculations = (function () {
 
     const directLabor = directLaborReg + directLaborOT;
 
-    // Apply OH/burden separately to reg and OT
-    const ohReg = window.ohRates ? window.ohRates.regular : 1.10;
-    const ohOT = window.ohRates ? window.ohRates.overtime : 1.10;
+    // Apply OH/burden separately to reg and OT using component rates
+    const ohRegRate = window.getTotalOHRate ? window.getTotalOHRate('regular') : 1.10;
+    const ohOTRate = window.getTotalOHRate ? window.getTotalOHRate('overtime') : 1.10;
     
-    const burdenedReg = directLaborReg * (1 + ohReg);
-    const burdenedOT = directLaborOT * (1 + ohOT);
+    const burdenedReg = directLaborReg * (1 + ohRegRate);
+    const burdenedOT = directLaborOT * (1 + ohOTRate);
     const burdenedLabor = burdenedReg + burdenedOT;
 
     // Expenses (manual entry for now, default 0)

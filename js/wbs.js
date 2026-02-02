@@ -38,6 +38,15 @@ function findNodeDepth(list, id, depth = 1) {
   return null;
 }
 
+function generateWBSCodes(nodes, prefix = "") {
+  nodes.forEach((node, index) => {
+    node.code = prefix ? `${prefix}.${index + 1}` : `${index + 1}`;
+    if (node.children && node.children.length > 0) {
+      generateWBSCodes(node.children, node.code);
+    }
+  });
+}
+
 function addChildById(id) {
   const parent = findNodeById(WBS_DATA, id);
   if (!parent) return;
@@ -63,10 +72,33 @@ function addChildById(id) {
     children: []
   });
 
+  generateWBSCodes(WBS_DATA);
   renderWBS();
 }
 
 function deleteNode(id) {
+  const node = findNodeById(WBS_DATA, id);
+  if (!node) return;
+
+  // Check if node has non-zero values
+  function hasNonZeroValues(n) {
+    if (n.directLabour || n.expenses || n.burdened || n.netRevenue || n.grossRevenue) {
+      return true;
+    }
+    if (n.children && n.children.length > 0) {
+      return n.children.some(hasNonZeroValues);
+    }
+    return false;
+  }
+
+  if (hasNonZeroValues(node)) {
+    const childrenCount = node.children ? node.children.length : 0;
+    const childrenText = childrenCount > 0 ? ` and ${childrenCount} child${childrenCount > 1 ? 'ren' : ''}` : '';
+    if (!confirm(`Delete "${node.name}"${childrenText}? This node has non-zero values.`)) {
+      return;
+    }
+  }
+
   function remove(list) {
     const index = list.findIndex(n => n.id === id);
     if (index !== -1) {
@@ -81,6 +113,7 @@ function deleteNode(id) {
 
   remove(WBS_DATA);
   selectedNodeId = null;
+  generateWBSCodes(WBS_DATA);
   renderWBS();
 }
 
@@ -473,6 +506,26 @@ function renderWBSNode(container, node, level = 1) {
 
   container.appendChild(row);
 
+  // Add delete button for all nodes (phases, tasks, work items)
+  const nameContainer = row.querySelector(".wbs-name");
+  if (nameContainer) {
+    const deleteBtn = document.createElement("span");
+    deleteBtn.textContent = "× ";
+    deleteBtn.style.cursor = "pointer";
+    deleteBtn.style.marginRight = "8px";
+    deleteBtn.style.color = "var(--text-muted)";
+    deleteBtn.style.fontSize = "14px";
+    deleteBtn.style.opacity = "0.6";
+    deleteBtn.title = "Delete";
+    deleteBtn.onmouseenter = () => deleteBtn.style.opacity = "1";
+    deleteBtn.onmouseleave = () => deleteBtn.style.opacity = "0.6";
+    deleteBtn.onclick = (e) => {
+      e.stopPropagation();
+      deleteNode(node.id);
+    };
+    nameContainer.insertBefore(deleteBtn, nameContainer.firstChild);
+  }
+
   // Add pill zones for leaf nodes AFTER row is added to DOM
   if (isLeaf) {
     // Find the tags container - it's the empty div after activity name and labor cells
@@ -776,12 +829,92 @@ function renderWBSNode(container, node, level = 1) {
         const tagsCell = document.createElement("div");
         activityRow.appendChild(tagsCell);
 
+        // Calculate financial values for this activity
+        async function calculateActivityFinancials() {
+          let directLaborReg = 0;
+          let directLaborOT = 0;
+          let revenue = 0;
+
+          for (const columnId in activity.hours) {
+            const hours = activity.hours[columnId];
+            const regHours = Number(hours.reg || 0);
+            const otHours = Number(hours.ot || 0);
+
+            if (regHours === 0 && otHours === 0) continue;
+
+            const resource = laborResources.find(r => r.id === columnId);
+            if (!resource) continue;
+
+            // Get rates (check overrides first)
+            let costRegular, costOT, sellRegular, sellOT;
+            
+            if (resource.overrideCostReg !== undefined || resource.overrideSellReg !== undefined) {
+              costRegular = resource.overrideCostReg !== undefined ? resource.overrideCostReg : resource.costRate || 60;
+              costOT = resource.overrideCostOT !== undefined ? resource.overrideCostOT : (costRegular * 1.5);
+              sellRegular = resource.overrideSellReg !== undefined ? resource.overrideSellReg : resource.chargeoutRate || 120;
+              sellOT = resource.overrideSellOT !== undefined ? resource.overrideSellOT : (sellRegular * 1.5);
+            } else {
+              const actualResourceId = resource.resourceId || columnId;
+              try {
+                const rates = await Rates.getRates(actualResourceId);
+                if (rates) {
+                  costRegular = rates.costRegular;
+                  costOT = rates.costOT;
+                  sellRegular = rates.sellRegular;
+                  sellOT = rates.sellOT;
+                } else {
+                  continue;
+                }
+              } catch (err) {
+                continue;
+              }
+            }
+
+            directLaborReg += regHours * costRegular;
+            directLaborOT += otHours * costOT;
+            revenue += regHours * sellRegular + otHours * sellOT;
+          }
+
+          const directLabor = directLaborReg + directLaborOT;
+          
+          // Apply OH/burden using component rates
+          const ohRegRate = window.getTotalOHRate ? window.getTotalOHRate('regular') : 1.10;
+          const ohOTRate = window.getTotalOHRate ? window.getTotalOHRate('overtime') : 1.10;
+          const burdenedLabor = directLaborReg * (1 + ohRegRate) + directLaborOT * (1 + ohOTRate);
+
+          const expenses = 0; // Activities don't have expenses
+          const netRevenue = revenue;
+          const grossRevenue = netRevenue * (node.gmMultiplier || 1.15);
+          
+          const nm = netRevenue > 0 ? (netRevenue - burdenedLabor - expenses) / netRevenue : 0;
+          const gm = grossRevenue > 0 ? (grossRevenue - burdenedLabor - expenses) / grossRevenue : 0;
+          const dlm = directLabor > 0 ? (revenue - burdenedLabor) : 0;
+
+          return { directLabor, expenses, burdenedLabor, netRevenue, grossRevenue, nm, gm, dlm };
+        }
+
+        // Add financial cells with calculated values
+        const finCells = [];
+        calculateActivityFinancials().then(financials => {
+          finCells[0].textContent = formatMoney(financials.directLabor);
+          finCells[1].textContent = formatMoney(financials.expenses);
+          finCells[2].textContent = formatMoney(financials.burdenedLabor);
+          finCells[3].textContent = formatMoney(financials.netRevenue);
+          finCells[4].textContent = formatMoney(financials.grossRevenue);
+          finCells[5].textContent = formatPercent(financials.nm);
+          finCells[6].textContent = formatPercent(financials.gm);
+          finCells[7].textContent = formatMoney(financials.dlm);
+        });
+
         const finCellCount = 8;
         for (let i = 0; i < finCellCount; i++) {
           const finCell = document.createElement("div");
           finCell.className = "wbs-fin-cell";
           finCell.textContent = "";
+          finCell.style.fontStyle = "italic";
+          finCell.style.color = "var(--text-muted)";
           activityRow.appendChild(finCell);
+          finCells.push(finCell);
         }
 
         container.appendChild(activityRow);
@@ -912,11 +1045,12 @@ function renderWBS() {
         if (Number.isFinite(num)) {
           target.value = new Intl.NumberFormat().format(num);
         }
-        // Trigger calculations and re-render
+        // Trigger calculations without re-rendering to preserve focus
         if (window.Calculations && window.Calculations.recalculate) {
-          window.Calculations.recalculate();
-        } else {
-          renderWBS();
+          clearTimeout(window._calcTimeout);
+          window._calcTimeout = setTimeout(() => {
+            window.Calculations.recalculate();
+          }, 300);
         }
       }
     });
@@ -933,10 +1067,16 @@ function renderWBS() {
 
   // Add labor columns if in labor mode
   if (laborMode) {
+    // Add expander column before resources
+    const expandIcon = showResourceRates ? "▼" : "▶";
+    columnTemplate += `
+      <div class="col-header" style="text-align: center; cursor: pointer; font-size: 10px; padding: 0 4px;" id="resourceRateToggle" title="Toggle rate details">
+        ${expandIcon}
+      </div>
+    `;
+    
     laborResources.forEach((res, idx) => {
       const headerOddClass = (idx % 2 === 1) ? " odd-resource-col" : "";
-      const expandIcon = showResourceRates ? "▼" : "▶";
-      const showToggle = idx === 0; // Only show toggle on first resource
       const hasOverride = res.overrideCostReg !== undefined || res.overrideCostOT !== undefined || 
                           res.overrideSellReg !== undefined || res.overrideSellOT !== undefined;
       const overrideIndicator = hasOverride ? " <span style='color: var(--accent); font-weight: 700;'>*</span>" : "";
@@ -944,7 +1084,6 @@ function renderWBS() {
       
       columnTemplate += `
         <div class="col-header resource-header${headerOddClass}" data-resource-id="${res.id}" draggable="true" style="text-align: center; font-size: 11px; grid-column: span 2; cursor: pointer; user-select: none;" ${titleAttr}>
-          ${showToggle ? `<span class="resource-expand-toggle" style="cursor: pointer; margin-right: 4px; font-size: 9px;">${expandIcon}</span>` : ''}
           ${res.name}${overrideIndicator}
         </div>
       `;
@@ -956,20 +1095,21 @@ function renderWBS() {
   }
 
   columnTemplate += `
-    <div class="col-header" data-col="${laborMode ? 2 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 3 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 4 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 5 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 6 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 7 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 8 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 9 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 10 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 3 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 4 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 5 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 6 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 7 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 8 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 9 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 10 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${laborMode ? 11 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
   `;
 
   // Build CSS column template
   let columnWidth = "100px 260px";
   if (laborMode) {
+    columnWidth += " 32px"; // Expander column
     for (let i = 0; i < laborResources.length; i++) {
       columnWidth += " 75px 75px";
     }
@@ -981,6 +1121,18 @@ function renderWBS() {
   headerRow.className = "wbs-row wbs-header";
   headerRow.innerHTML = columnTemplate;
   container.appendChild(headerRow);
+
+  // Wire up resource rate toggle
+  if (laborMode) {
+    const rateToggle = document.getElementById("resourceRateToggle");
+    if (rateToggle) {
+      rateToggle.addEventListener("click", (e) => {
+        e.stopPropagation();
+        showResourceRates = !showResourceRates;
+        renderWBS();
+      });
+    }
+  }
 
   // Add rate detail rows if resources are expanded
   if (laborMode && showResourceRates) {
@@ -1070,16 +1222,6 @@ function renderWBS() {
   if (laborMode) {
     const headers = Array.from(container.querySelectorAll(".resource-header[data-resource-id]"));
     headers.forEach((header) => {
-      // Click expander to toggle rate details (only on first resource)
-      const expander = header.querySelector(".resource-expand-toggle");
-      if (expander) {
-        expander.addEventListener("click", (e) => {
-          e.stopPropagation();
-          showResourceRates = !showResourceRates;
-          renderWBS();
-        });
-      }
-      
       // Right-click for rate override
       header.addEventListener("contextmenu", (e) => {
         e.preventDefault();
@@ -1545,14 +1687,14 @@ function openRateOverrideModal(resource) {
     title: `Rate Override - ${resource.name}`,
     content: (container) => {
       container.innerHTML = "";
-      container.style.padding = "20px";
-      container.style.maxWidth = "500px";
+      container.style.padding = "16px";
+      container.style.maxWidth = "480px";
 
       const intro = document.createElement("p");
       intro.textContent = "Override the default rates for this resource. Leave blank to use default rates from the rate table.";
-      intro.style.marginBottom = "20px";
+      intro.style.marginBottom = "16px";
       intro.style.color = "var(--text-muted)";
-      intro.style.fontSize = "13px";
+      intro.style.fontSize = "11px";
       container.appendChild(intro);
 
       // Get default rates
@@ -1564,23 +1706,23 @@ function openRateOverrideModal(resource) {
       // Helper to create input field
       function createRateInput(label, defaultValue, overrideValue, placeholder) {
         const group = document.createElement("div");
-        group.style.marginBottom = "16px";
+        group.style.marginBottom = "10px";
 
         const labelEl = document.createElement("label");
         labelEl.textContent = label;
         labelEl.style.display = "block";
-        labelEl.style.marginBottom = "8px";
+        labelEl.style.marginBottom = "4px";
         labelEl.style.fontWeight = "600";
-        labelEl.style.fontSize = "13px";
+        labelEl.style.fontSize = "11px";
 
         const inputWrapper = document.createElement("div");
         inputWrapper.style.display = "flex";
         inputWrapper.style.alignItems = "center";
-        inputWrapper.style.gap = "8px";
+        inputWrapper.style.gap = "6px";
 
         const dollarSign = document.createElement("span");
         dollarSign.textContent = "$";
-        dollarSign.style.fontSize = "13px";
+        dollarSign.style.fontSize = "11px";
         dollarSign.style.color = "var(--text-muted)";
 
         const input = document.createElement("input");
@@ -1589,17 +1731,17 @@ function openRateOverrideModal(resource) {
         input.min = "0";
         input.value = overrideValue !== undefined ? overrideValue : "";
         input.placeholder = placeholder || `Default: ${defaultValue.toFixed(2)}`;
-        input.style.width = "150px";
-        input.style.padding = "8px";
+        input.style.width = "100px";
+        input.style.padding = "4px 6px";
         input.style.border = "1px solid var(--border)";
         input.style.borderRadius = "4px";
         input.style.background = "var(--bg)";
         input.style.color = "var(--text)";
-        input.style.fontSize = "13px";
+        input.style.fontSize = "11px";
 
         const defaultNote = document.createElement("span");
-        defaultNote.textContent = `(Default: $${defaultValue.toFixed(2)})`;
-        defaultNote.style.fontSize = "11px";
+        defaultNote.textContent = `(Default: $${defaultValue.toFixed(0)})`;
+        defaultNote.style.fontSize = "10px";
         defaultNote.style.color = "var(--text-muted)";
 
         inputWrapper.appendChild(dollarSign);
@@ -1614,14 +1756,14 @@ function openRateOverrideModal(resource) {
 
       // Cost rates
       const costSection = document.createElement("div");
-      costSection.style.marginBottom = "24px";
+      costSection.style.marginBottom = "16px";
       
       const costTitle = document.createElement("h3");
       costTitle.textContent = "Cost Rates";
-      costTitle.style.fontSize = "14px";
-      costTitle.style.marginBottom = "12px";
+      costTitle.style.fontSize = "12px";
+      costTitle.style.marginBottom = "8px";
       costTitle.style.borderBottom = "1px solid var(--border)";
-      costTitle.style.paddingBottom = "8px";
+      costTitle.style.paddingBottom = "4px";
       costSection.appendChild(costTitle);
 
       const { group: costRegGroup, input: costRegInput } = createRateInput(
@@ -1644,14 +1786,14 @@ function openRateOverrideModal(resource) {
 
       // Sell rates
       const sellSection = document.createElement("div");
-      sellSection.style.marginBottom = "24px";
+      sellSection.style.marginBottom = "16px";
       
       const sellTitle = document.createElement("h3");
       sellTitle.textContent = "Sell Rates";
-      sellTitle.style.fontSize = "14px";
-      sellTitle.style.marginBottom = "12px";
+      sellTitle.style.fontSize = "12px";
+      sellTitle.style.marginBottom = "8px";
       sellTitle.style.borderBottom = "1px solid var(--border)";
-      sellTitle.style.paddingBottom = "8px";
+      sellTitle.style.paddingBottom = "4px";
       sellSection.appendChild(sellTitle);
 
       const { group: sellRegGroup, input: sellRegInput } = createRateInput(
@@ -1676,7 +1818,9 @@ function openRateOverrideModal(resource) {
       const clearBtn = document.createElement("button");
       clearBtn.textContent = "Clear All Overrides";
       clearBtn.className = "btn btn-secondary";
-      clearBtn.style.marginTop = "12px";
+      clearBtn.style.marginTop = "8px";
+      clearBtn.style.padding = "4px 12px";
+      clearBtn.style.fontSize = "11px";
       clearBtn.addEventListener("click", () => {
         costRegInput.value = "";
         costOTInput.value = "";

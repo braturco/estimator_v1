@@ -337,9 +337,11 @@ body {
 }
 
 .wbs-indent-1 { padding-left: 0px; }
-.wbs-indent-2 { padding-left: 8px; }
-.wbs-indent-3 { padding-left: 16px; }
-.wbs-indent-4 { padding-left: 24px; }
+.wbs-indent-2 { padding-left: 12px; }
+.wbs-indent-3 { padding-left: 24px; }
+.wbs-indent-4 { padding-left: 36px; }
+.wbs-indent-5 { padding-left: 48px; }
+.wbs-indent-6 { padding-left: 60px; }
 
 .header-actions {
   display: flex;
