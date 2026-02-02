@@ -258,7 +258,7 @@ function renderTotalsRow() {
   totalsEl.appendChild(labelCell);
   
   // Labor columns
-  if (laborMode) {
+  if (expandedPricingMethods.labor) {
     laborResources.forEach((res, idx) => {
       const oddClass = (idx % 2 === 1) ? ' odd-resource' : '';
       const regTotal = WBS_DATA.reduce((sum, node) => sum + calculateLaborRollup(node, res.id, "reg"), 0);
@@ -358,7 +358,7 @@ function renderWBSNode(container, node, level = 1) {
 	row.onclick = () => selectRow(node.id);
 
   // Accept activity drops for reordering/moving
-  if (isLeaf && laborMode) {
+  if (isLeaf && expandedPricingMethods.labor) {
     row.addEventListener("dragover", (e) => {
       if (e.dataTransfer.types.includes("text/plain")) {
         e.preventDefault();
@@ -461,7 +461,7 @@ function renderWBSNode(container, node, level = 1) {
     });
   }
   let laborCellsHtml = "";
-  if (laborMode) {
+  if (expandedPricingMethods.labor) {
     // Render rollup cells for each resource (hours are entered on activity rows)
     laborResources.forEach((res, idx) => {
       const oddClass = (idx % 2 === 1) ? ' odd-resource' : '';
@@ -533,7 +533,7 @@ function renderWBSNode(container, node, level = 1) {
   if (isLeaf) {
     // Find the tags container - it's the empty div after activity name and labor cells
     const allChildren = row.children;
-    const laborCellCount = laborMode ? laborResources.length * 2 : 0;
+    const laborCellCount = expandedPricingMethods.labor ? laborResources.length * 2 : 0;
     const tagZoneContainerIndex = 2 + laborCellCount; // After code, activity, and labor cells
     const tagZoneContainer = allChildren[tagZoneContainerIndex];
 
@@ -543,7 +543,7 @@ function renderWBSNode(container, node, level = 1) {
     }
 
     // Render activity rows for this node in labor mode
-    if (laborMode && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
+    if (expandedPricingMethods.labor && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
       const setActiveActivityRow = (rowEl) => {
         document.querySelectorAll(".wbs-row-active").forEach(el => {
           el.classList.remove("wbs-row-active");
@@ -1065,14 +1065,22 @@ function renderWBS() {
 
   container.innerHTML = "";
 
-  // Build column layout based on labor mode
+  // Build column layout based on pricing methods
   let columnTemplate = `
     <div class="col-header" data-col="0">WBS<div class="col-resize-handle"></div></div>
     <div class="col-header" data-col="1">Activity<div class="col-resize-handle"></div></div>
   `;
 
-  // Add labor columns if in labor mode
-  if (laborMode) {
+  // Add labor pricing method expander
+  const laborExpandIcon = expandedPricingMethods.labor ? "▼" : "▶";
+  columnTemplate += `
+    <div class="col-header pricing-method-header" id="laborMethodHeader" style="cursor: pointer; user-select: none; font-weight: 600;" title="Click to expand/collapse labor columns">
+      <span style="margin-right: 6px; font-size: 10px;">${laborExpandIcon}</span>Labor
+    </div>
+  `;
+
+  // Add labor resource columns if expanded
+  if (expandedPricingMethods.labor) {
     laborResources.forEach((res, idx) => {
       const headerOddClass = (idx % 2 === 1) ? " odd-resource-col" : "";
       const hasOverride = res.overrideCostReg !== undefined || res.overrideCostOT !== undefined || 
@@ -1092,25 +1100,25 @@ function renderWBS() {
     });
     
     if (laborResources.length === 0) {
-      columnTemplate += `<div class="col-header" style="text-align: center;">Labor Columns (add resources)</div>`;
+      columnTemplate += `<div class="col-header" style="text-align: center; font-size: 10px; font-style: italic; color: var(--text-muted);">No resources</div>`;
     }
   }
 
   columnTemplate += `
-    <div class="col-header" data-col="${laborMode ? 2 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 3 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 4 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 5 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 6 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 7 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 8 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 9 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${laborMode ? 10 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 2 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 3 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 4 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 5 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 6 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 7 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 8 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 9 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${expandedPricingMethods.labor ? 10 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
   `;
 
   // Build CSS column template
-  let columnWidth = "100px 260px";
-  if (laborMode) {
+  let columnWidth = "100px 260px 90px"; // WBS, Activity, Labor expander
+  if (expandedPricingMethods.labor) {
     for (let i = 0; i < laborResources.length; i++) {
       columnWidth += " 75px 75px";
     }
@@ -1123,8 +1131,39 @@ function renderWBS() {
   headerRow.innerHTML = columnTemplate;
   container.appendChild(headerRow);
 
+  // Wire up labor method header toggle
+  const laborMethodHeader = headerRow.querySelector("#laborMethodHeader");
+  if (laborMethodHeader) {
+    laborMethodHeader.addEventListener("click", () => {
+      expandedPricingMethods.labor = !expandedPricingMethods.labor;
+      
+      // Initialize labor data if expanding for first time
+      if (expandedPricingMethods.labor && laborResources.length === 0) {
+        laborResources.push({
+          id: crypto.randomUUID(),
+          name: "Resource 1",
+          resourceId: "p5-professional",
+          chargeoutRate: 100,
+          costRate: 60
+        });
+      }
+      
+      // Show/hide resource and activity buttons
+      const addResourceBtn = document.getElementById("addResourceBtn");
+      const addActivityBtn = document.getElementById("addActivityBtn");
+      if (addResourceBtn) {
+        addResourceBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
+      }
+      if (addActivityBtn) {
+        addActivityBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
+      }
+      
+      renderWBS();
+    });
+  }
+
   // Wire up resource rate toggles - all of them
-  if (laborMode) {
+  if (expandedPricingMethods.labor) {
     const rateToggles = headerRow.querySelectorAll(".resourceRateToggle");
     rateToggles.forEach(toggle => {
       toggle.addEventListener("click", (e) => {
@@ -1136,7 +1175,7 @@ function renderWBS() {
   }
 
   // Add rate detail rows if resources are expanded
-  if (laborMode && showResourceRates) {
+  if (expandedPricingMethods.labor && showResourceRates) {
     const rateDetailRow = document.createElement("div");
     rateDetailRow.className = "wbs-row wbs-rate-detail-row";
     rateDetailRow.style.fontSize = "10px";
@@ -1220,7 +1259,7 @@ function renderWBS() {
     container.appendChild(sellRateRow);
   }
 
-  if (laborMode) {
+  if (expandedPricingMethods.labor) {
     const headers = Array.from(container.querySelectorAll(".resource-header[data-resource-id]"));
     headers.forEach((header) => {
       // Right-click for rate override
@@ -1443,7 +1482,7 @@ function renderWBS() {
 function wireTopButtons() {
   const phaseBtn = document.getElementById("addPhaseBtn");
   const taskBtn = document.getElementById("addTaskBtn");
-  const laborBtn = document.getElementById("laborModeBtn");
+  const laborBtn = document.getElementById("expandedPricingMethods.laborBtn");
   const addResourceBtn = document.getElementById("addResourceBtn");
   const addActivityBtn = document.getElementById("addActivityBtn");
   const recalculateBtn = document.getElementById("recalculateBtn");
@@ -1476,46 +1515,6 @@ function wireTopButtons() {
       if (!selectedNodeId) return;
       addChildById(selectedNodeId);
     };
-  }
-
-  if (laborBtn) {
-    laborBtn.onclick = () => {
-      laborMode = !laborMode;
-      laborBtn.textContent = laborMode ? "Exit Labor Mode" : "Labor Mode";
-      laborBtn.classList.toggle("active", laborMode);
-
-      if (addResourceBtn) {
-        addResourceBtn.style.display = laborMode ? "inline-flex" : "none";
-      }
-
-      if (addActivityBtn) {
-        addActivityBtn.style.display = laborMode ? "inline-flex" : "none";
-      }
-      
-      if (laborMode) {
-        // Initialize labor data if needed
-        if (laborResources.length === 0) {
-          laborResources.push({
-            id: crypto.randomUUID(),
-            name: "Resource 1",
-            resourceId: "p5-professional", // Default to a generic professional
-            chargeoutRate: 100,
-            costRate: 60
-          });
-        }
-      }
-      renderWBS();
-    };
-    
-    // Sync button state with restored laborMode on page load
-    laborBtn.textContent = laborMode ? "Exit Labor Mode" : "Labor Mode";
-    laborBtn.classList.toggle("active", laborMode);
-    if (addResourceBtn) {
-      addResourceBtn.style.display = laborMode ? "inline-flex" : "none";
-    }
-    if (addActivityBtn) {
-      addActivityBtn.style.display = laborMode ? "inline-flex" : "none";
-    }
   }
 
   if (addResourceBtn) {
@@ -1632,7 +1631,7 @@ function wireTopButtons() {
       });
     };
 
-    addResourceBtn.style.display = laborMode ? "inline-flex" : "none";
+    addResourceBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
   }
 
   if (addActivityBtn) {
@@ -1653,7 +1652,7 @@ function wireTopButtons() {
       renderWBS();
     };
 
-    addActivityBtn.style.display = laborMode ? "inline-flex" : "none";
+    addActivityBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
   }
 
   if (recalculateBtn) {

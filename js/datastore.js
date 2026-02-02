@@ -35,9 +35,14 @@ window.showResourceRates = false;
 // Theme preference
 window.currentTheme = "dark"; // "dark" or "light"
 
-// Labor mode state
-window.laborMode = false;
-window.laborResources = [];  // Global resource list for labor mode
+// Pricing method visibility (column expanders)
+window.expandedPricingMethods = {
+  labor: false,
+  expense: false,
+  usages: false
+};
+
+window.laborResources = [];  // Global resource list for labor pricing
 window.laborActivities = {};  // [taskId] = [ { id, name, hours: { resourceId_reg, resourceId_ot } } ]
 
 // OH/Burden rates (as percentages/multipliers on direct labor)
@@ -75,7 +80,7 @@ function getAppState() {
     wbsPills,
     laborResources,
     laborActivities,
-    laborMode,
+    expandedPricingMethods,
     ohRates,
     currentTheme,
     collapsedNodes: Array.from(collapsedNodes || []),
@@ -89,7 +94,12 @@ function applyAppState(state) {
   if (state.wbsPills && typeof state.wbsPills === "object") window.wbsPills = state.wbsPills;
   if (Array.isArray(state.laborResources)) window.laborResources = state.laborResources;
   if (state.laborActivities && typeof state.laborActivities === "object") window.laborActivities = state.laborActivities;
-  if (typeof state.laborMode === "boolean") window.laborMode = state.laborMode;
+  if (state.expandedPricingMethods && typeof state.expandedPricingMethods === "object") {
+    window.expandedPricingMethods = state.expandedPricingMethods;
+  } else if (typeof state.laborMode === "boolean") {
+    // Migrate old laborMode to new structure
+    window.expandedPricingMethods.labor = state.laborMode;
+  }
   if (state.ohRates && typeof state.ohRates === "object") window.ohRates = state.ohRates;
   if (state.currentTheme) window.currentTheme = state.currentTheme;
   if (Array.isArray(state.collapsedNodes)) window.collapsedNodes = new Set(state.collapsedNodes);
