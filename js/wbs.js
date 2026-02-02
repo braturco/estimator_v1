@@ -55,7 +55,7 @@ function addChildById(id) {
   if (!parentDepth) return;
   
   const newLevel = parentDepth + 1;
-  const name = newLevel === 2 ? "New Task" : "New Work Item";
+  const name = newLevel === 2 ? "New Task" : "New Subtask";
 
   parent.children = parent.children || [];
   parent.children.push({
