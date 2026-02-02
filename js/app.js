@@ -186,126 +186,134 @@ function openOHRatesSettings() {
     title: "OH/Burden Rate Settings",
     content: (container) => {
       container.innerHTML = "";
-      container.style.padding = "16px";
-      container.style.maxWidth = "600px";
+      container.style.padding = "12px";
+      container.style.maxWidth = "420px";
 
       const intro = document.createElement("p");
-      intro.textContent = "Set overhead/burden rates applied to direct labor costs. Rates are expressed as percentages. Total OH = Labor Fringe + Operating Costs + Operating OH.";
-      intro.style.marginBottom = "16px";
+      intro.textContent = "Set overhead/burden rates applied to direct labor costs. Rates are expressed as percentages.";
+      intro.style.marginBottom = "10px";
       intro.style.color = "var(--text-muted)";
-      intro.style.fontSize = "11px";
+      intro.style.fontSize = "10px";
       container.appendChild(intro);
 
       const createRateSection = (title, type) => {
         const section = document.createElement("div");
-        section.style.marginBottom = "20px";
-        section.style.padding = "12px";
+        section.style.marginBottom = "12px";
+        section.style.padding = "8px";
         section.style.border = "1px solid var(--border)";
         section.style.borderRadius = "4px";
         section.style.background = "var(--bg-hover)";
 
         const sectionTitle = document.createElement("h3");
         sectionTitle.textContent = title;
-        sectionTitle.style.margin = "0 0 12px 0";
-        sectionTitle.style.fontSize = "12px";
+        sectionTitle.style.margin = "0 0 8px 0";
+        sectionTitle.style.fontSize = "11px";
         sectionTitle.style.fontWeight = "600";
         sectionTitle.style.textTransform = "uppercase";
         section.appendChild(sectionTitle);
 
         const currentRates = window.ohRates[type];
 
+        // Horizontal grid for inputs
+        const grid = document.createElement("div");
+        grid.style.display = "grid";
+        grid.style.gridTemplateColumns = "1fr 1fr 1fr";
+        grid.style.gap = "8px";
+        grid.style.marginBottom = "8px";
+
         const createInput = (label, value, description) => {
           const group = document.createElement("div");
-          group.style.marginBottom = "10px";
 
           const labelEl = document.createElement("label");
           labelEl.textContent = label;
           labelEl.style.display = "block";
-          labelEl.style.marginBottom = "4px";
-          labelEl.style.fontSize = "11px";
+          labelEl.style.marginBottom = "2px";
+          labelEl.style.fontSize = "9px";
           labelEl.style.fontWeight = "600";
-
-          const desc = document.createElement("div");
-          desc.textContent = description;
-          desc.style.fontSize = "10px";
-          desc.style.color = "var(--text-muted)";
-          desc.style.marginBottom = "4px";
+          labelEl.style.color = "var(--text-muted)";
 
           const inputWrapper = document.createElement("div");
           inputWrapper.style.display = "flex";
           inputWrapper.style.alignItems = "center";
-          inputWrapper.style.gap = "6px";
+          inputWrapper.style.gap = "2px";
 
           const input = document.createElement("input");
           input.type = "number";
-          input.step = "0.01";
+          input.step = "0.1";
           input.min = "0";
           input.value = (value * 100).toFixed(1);
-          input.style.width = "80px";
-          input.style.padding = "4px 6px";
+          input.style.width = "100%";
+          input.style.padding = "3px 4px";
           input.style.border = "1px solid var(--border)";
-          input.style.borderRadius = "4px";
+          input.style.borderRadius = "3px";
           input.style.background = "var(--bg)";
           input.style.color = "var(--text)";
-          input.style.fontSize = "11px";
+          input.style.fontSize = "10px";
+          input.title = description;
 
           const percent = document.createElement("span");
           percent.textContent = "%";
-          percent.style.fontSize = "11px";
+          percent.style.fontSize = "9px";
+          percent.style.color = "var(--text-muted)";
 
           inputWrapper.appendChild(input);
           inputWrapper.appendChild(percent);
 
           group.appendChild(labelEl);
-          group.appendChild(desc);
           group.appendChild(inputWrapper);
-          section.appendChild(group);
 
-          return input;
+          return { group, input };
         };
 
-        const laborFringeInput = createInput(
+        const laborFringe = createInput(
           "Labor Fringe",
           currentRates.laborFringe,
           "Benefits, payroll taxes, etc."
         );
-        const operatingCostsInput = createInput(
+        grid.appendChild(laborFringe.group);
+
+        const operatingCosts = createInput(
           "Operating Costs",
           currentRates.operatingCosts,
           "Facility, utilities, insurance, etc."
         );
-        const operatingOHInput = createInput(
+        grid.appendChild(operatingCosts.group);
+
+        const operatingOH = createInput(
           "Operating OH",
           currentRates.operatingOH,
           "General & administrative overhead"
         );
+        grid.appendChild(operatingOH.group);
+
+        section.appendChild(grid);
 
         // Total display
         const totalDiv = document.createElement("div");
-        totalDiv.style.marginTop = "12px";
-        totalDiv.style.padding = "8px";
+        totalDiv.style.padding = "6px";
         totalDiv.style.background = "var(--bg)";
-        totalDiv.style.borderRadius = "4px";
-        totalDiv.style.fontSize = "12px";
+        totalDiv.style.borderRadius = "3px";
+        totalDiv.style.fontSize = "10px";
         totalDiv.style.fontWeight = "600";
+        totalDiv.style.textAlign = "center";
 
         const updateTotal = () => {
           const total = (
-            parseFloat(laborFringeInput.value) +
-            parseFloat(operatingCostsInput.value) +
-            parseFloat(operatingOHInput.value)
+            parseFloat(laborFringe.input.value) +
+            parseFloat(operatingCosts.input.value) +
+            parseFloat(operatingOH.input.value)
           ).toFixed(1);
-          totalDiv.textContent = `Total ${title}: ${total}%`;
+          totalDiv.textContent = `Total: ${total}%`;
         };
 
-        laborFringeInput.addEventListener("input", updateTotal);
-        operatingCostsInput.addEventListener("input", updateTotal);
-        operatingOHInput.addEventListener("input", updateTotal);
+        laborFringe.input.addEventListener("input", updateTotal);
+        operatingCosts.input.addEventListener("input", updateTotal);
+        operatingOH.input.addEventListener("input", updateTotal);
         updateTotal();
 
         section.appendChild(totalDiv);
 
-        return { section, laborFringeInput, operatingCostsInput, operatingOHInput };
+        return { section, laborFringeInput: laborFringe.input, operatingCostsInput: operatingCosts.input, operatingOHInput: operatingOH.input };
       };
 
       const regSection = createRateSection("Regular Time", "regular");
@@ -313,19 +321,6 @@ function openOHRatesSettings() {
 
       const otSection = createRateSection("Overtime", "overtime");
       container.appendChild(otSection.section);
-
-      // Example
-      const example = document.createElement("div");
-      example.style.marginTop = "12px";
-      example.style.padding = "10px";
-      example.style.background = "var(--bg-hover)";
-      example.style.borderRadius = "4px";
-      example.style.fontSize = "10px";
-      example.style.color = "var(--text-muted)";
-      example.innerHTML = `
-        <strong>Example:</strong> If DL = $1000 and Total OH = 110%, then Burdened = $1000 × (1 + 1.10) = $2,100
-      `;
-      container.appendChild(example);
 
       // Save callback
       container._saveCallback = () => {
