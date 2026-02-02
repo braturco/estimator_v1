@@ -258,7 +258,7 @@ function renderTotalsRow() {
   totalsEl.appendChild(labelCell);
   
   // Labor columns
-  if (expandedPricingMethods.labor) {
+  if (window.expandedPricingMethods.labor) {
     laborResources.forEach((res, idx) => {
       const oddClass = (idx % 2 === 1) ? ' odd-resource' : '';
       const regTotal = WBS_DATA.reduce((sum, node) => sum + calculateLaborRollup(node, res.id, "reg"), 0);
@@ -358,7 +358,7 @@ function renderWBSNode(container, node, level = 1) {
 	row.onclick = () => selectRow(node.id);
 
   // Accept activity drops for reordering/moving
-  if (isLeaf && expandedPricingMethods.labor) {
+  if (isLeaf && window.expandedPricingMethods.labor) {
     row.addEventListener("dragover", (e) => {
       if (e.dataTransfer.types.includes("text/plain")) {
         e.preventDefault();
@@ -461,7 +461,7 @@ function renderWBSNode(container, node, level = 1) {
     });
   }
   let laborCellsHtml = "";
-  if (expandedPricingMethods.labor) {
+  if (window.expandedPricingMethods.labor) {
     // Render rollup cells for each resource (hours are entered on activity rows)
     laborResources.forEach((res, idx) => {
       const oddClass = (idx % 2 === 1) ? ' odd-resource' : '';
@@ -533,7 +533,7 @@ function renderWBSNode(container, node, level = 1) {
   if (isLeaf) {
     // Find the tags container - it's the empty div after activity name and labor cells
     const allChildren = row.children;
-    const laborCellCount = expandedPricingMethods.labor ? laborResources.length * 2 : 0;
+    const laborCellCount = window.expandedPricingMethods.labor ? laborResources.length * 2 : 0;
     const tagZoneContainerIndex = 2 + laborCellCount; // After code, activity, and labor cells
     const tagZoneContainer = allChildren[tagZoneContainerIndex];
 
@@ -543,7 +543,7 @@ function renderWBSNode(container, node, level = 1) {
     }
 
     // Render activity rows for this node in labor mode
-    if (expandedPricingMethods.labor && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
+    if (window.expandedPricingMethods.labor && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
       const setActiveActivityRow = (rowEl) => {
         document.querySelectorAll(".wbs-row-active").forEach(el => {
           el.classList.remove("wbs-row-active");
@@ -1072,7 +1072,7 @@ function renderWBS() {
   `;
 
   // Add labor pricing method expander
-  const laborExpandIcon = expandedPricingMethods.labor ? "▼" : "▶";
+  const laborExpandIcon = window.expandedPricingMethods.labor ? "▼" : "▶";
   columnTemplate += `
     <div class="col-header pricing-method-header" id="laborMethodHeader" style="cursor: pointer; user-select: none; font-weight: 600;" title="Click to expand/collapse labor columns">
       <span style="margin-right: 6px; font-size: 10px;">${laborExpandIcon}</span>Labor
@@ -1080,7 +1080,7 @@ function renderWBS() {
   `;
 
   // Add labor resource columns if expanded
-  if (expandedPricingMethods.labor) {
+  if (window.expandedPricingMethods.labor) {
     laborResources.forEach((res, idx) => {
       const headerOddClass = (idx % 2 === 1) ? " odd-resource-col" : "";
       const hasOverride = res.overrideCostReg !== undefined || res.overrideCostOT !== undefined || 
@@ -1105,20 +1105,20 @@ function renderWBS() {
   }
 
   columnTemplate += `
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 2 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 3 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 4 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 5 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 6 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 7 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 8 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 9 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${expandedPricingMethods.labor ? 10 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 2 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 3 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 4 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 5 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 6 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 7 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 8 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 9 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
+    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 10 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
   `;
 
   // Build CSS column template
   let columnWidth = "100px 260px 90px"; // WBS, Activity, Labor expander
-  if (expandedPricingMethods.labor) {
+  if (window.expandedPricingMethods.labor) {
     for (let i = 0; i < laborResources.length; i++) {
       columnWidth += " 75px 75px";
     }
@@ -1135,10 +1135,10 @@ function renderWBS() {
   const laborMethodHeader = headerRow.querySelector("#laborMethodHeader");
   if (laborMethodHeader) {
     laborMethodHeader.addEventListener("click", () => {
-      expandedPricingMethods.labor = !expandedPricingMethods.labor;
+      window.expandedPricingMethods.labor = !window.expandedPricingMethods.labor;
       
       // Initialize labor data if expanding for first time
-      if (expandedPricingMethods.labor && laborResources.length === 0) {
+      if (window.expandedPricingMethods.labor && laborResources.length === 0) {
         laborResources.push({
           id: crypto.randomUUID(),
           name: "Resource 1",
@@ -1152,10 +1152,10 @@ function renderWBS() {
       const addResourceBtn = document.getElementById("addResourceBtn");
       const addActivityBtn = document.getElementById("addActivityBtn");
       if (addResourceBtn) {
-        addResourceBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
+        addResourceBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
       }
       if (addActivityBtn) {
-        addActivityBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
+        addActivityBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
       }
       
       renderWBS();
@@ -1163,7 +1163,7 @@ function renderWBS() {
   }
 
   // Wire up resource rate toggles - all of them
-  if (expandedPricingMethods.labor) {
+  if (window.expandedPricingMethods.labor) {
     const rateToggles = headerRow.querySelectorAll(".resourceRateToggle");
     rateToggles.forEach(toggle => {
       toggle.addEventListener("click", (e) => {
@@ -1175,7 +1175,7 @@ function renderWBS() {
   }
 
   // Add rate detail rows if resources are expanded
-  if (expandedPricingMethods.labor && showResourceRates) {
+  if (window.expandedPricingMethods.labor && showResourceRates) {
     const rateDetailRow = document.createElement("div");
     rateDetailRow.className = "wbs-row wbs-rate-detail-row";
     rateDetailRow.style.fontSize = "10px";
@@ -1259,7 +1259,7 @@ function renderWBS() {
     container.appendChild(sellRateRow);
   }
 
-  if (expandedPricingMethods.labor) {
+  if (window.expandedPricingMethods.labor) {
     const headers = Array.from(container.querySelectorAll(".resource-header[data-resource-id]"));
     headers.forEach((header) => {
       // Right-click for rate override
@@ -1482,7 +1482,7 @@ function renderWBS() {
 function wireTopButtons() {
   const phaseBtn = document.getElementById("addPhaseBtn");
   const taskBtn = document.getElementById("addTaskBtn");
-  const laborBtn = document.getElementById("expandedPricingMethods.laborBtn");
+  const laborBtn = document.getElementById("window.expandedPricingMethods.laborBtn");
   const addResourceBtn = document.getElementById("addResourceBtn");
   const addActivityBtn = document.getElementById("addActivityBtn");
   const recalculateBtn = document.getElementById("recalculateBtn");
@@ -1631,7 +1631,7 @@ function wireTopButtons() {
       });
     };
 
-    addResourceBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
+    addResourceBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
   }
 
   if (addActivityBtn) {
@@ -1652,7 +1652,7 @@ function wireTopButtons() {
       renderWBS();
     };
 
-    addActivityBtn.style.display = expandedPricingMethods.labor ? "inline-flex" : "none";
+    addActivityBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
   }
 
   if (recalculateBtn) {
