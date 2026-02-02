@@ -51,15 +51,16 @@ function addChildById(id) {
   const parent = findNodeById(WBS_DATA, id);
   if (!parent) return;
 
-  const parentLevel = parent.level || findNodeDepth(WBS_DATA, id) || 1;
-  const newLevel = parentLevel + 1;
+  const parentDepth = findNodeDepth(WBS_DATA, id);
+  if (!parentDepth) return;
+  
+  const newLevel = parentDepth + 1;
   const name = newLevel === 2 ? "New Task" : "New Work Item";
 
   parent.children = parent.children || [];
   parent.children.push({
     id: crypto.randomUUID(),
     name,
-    level: newLevel,
     code: "",
     directLabour: 0,
     expenses: 0,
@@ -486,10 +487,12 @@ function renderWBSNode(container, node, level = 1) {
   }
 
   const nameClass = hasChildren ? (collapsed ? "wbs-name rollup collapsed" : "wbs-name rollup") : "wbs-name";
+  const expandIconHtml = hasChildren ? `<span class="wbs-expand-icon">${collapsed ? '[+]' : '[–]'}</span>` : '<span class="wbs-expand-spacer"></span>';
 
   row.innerHTML = `
     <div class="wbs-code">${node.code || ""}</div>
 	<div class="${nameClass} wbs-indent-${level}" data-id="${node.id}">
+	  ${expandIconHtml}
 	  <span class="wbs-activity-label">${node.name}</span>
 	</div>
     ${laborCellsHtml}
@@ -935,9 +938,9 @@ function renderWBSNode(container, node, level = 1) {
     }
   }
 
-  const nameEl = row.querySelector(".wbs-name");
-  if (nameEl && hasChildren) {
-    nameEl.onclick = e => {
+  const expandIcon = row.querySelector(".wbs-expand-icon");
+  if (expandIcon && hasChildren) {
+    expandIcon.onclick = e => {
       e.stopPropagation();
       node.collapsed = !node.collapsed;
       renderWBS();

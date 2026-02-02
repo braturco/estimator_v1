@@ -200,23 +200,27 @@ table td {
   padding: 4px;
 }
 
-.wbs-name::before {
-  content: "";
+.wbs-expand-icon {
+  display: inline-block;
+  width: 22px;
+  margin-right: 6px;
+  color: var(--text-muted);
+  font-size: 11px;
+  opacity: 0.8;
+  cursor: pointer;
+  user-select: none;
+}
+
+.wbs-expand-icon:hover {
+  opacity: 1;
+  color: var(--accent);
+}
+
+.wbs-expand-spacer {
   display: inline-block;
   width: 22px;
   margin-right: 6px;
 }
-
-.wbs-name.rollup::before {
-  content: "[–]"; /* expanded */
-  color: var(--text-muted);
-  font-size: 11px;
-  opacity: 0.8;
-}
-
-.wbs-name.rollup.collapsed::before { 
-	content: "[+]"; /* collapsed */ 
-	}
 
 .wbs-name.rollup .wbs-activity-label {
   color: var(--text-muted);
