@@ -1074,9 +1074,9 @@ function renderWBS() {
       const overrideIndicator = hasOverride ? " <span style='color: var(--accent); font-weight: 700;'>*</span>" : "";
       const titleAttr = hasOverride ? "title='Has rate overrides. Right-click to edit.'" : "title='Double-click to change, right-click for rate overrides'";
       
-      // Show expander toggle only on first resource
+      // Show expander toggle on each resource
       const expandIcon = showResourceRates ? "▼" : "▶";
-      const expanderHtml = idx === 0 ? `<span id="resourceRateToggle" style="cursor: pointer; margin-right: 6px; font-size: 10px;" title="Toggle rate details">${expandIcon}</span>` : '';
+      const expanderHtml = `<span class="resourceRateToggle" style="cursor: pointer; margin-right: 6px; font-size: 10px;" title="Toggle rate details">${expandIcon}</span>`;
       
       columnTemplate += `
         <div class="col-header resource-header${headerOddClass}" data-resource-id="${res.id}" draggable="true" style="text-align: center; font-size: 11px; grid-column: span 2; cursor: pointer; user-select: none;" ${titleAttr}>
@@ -1117,16 +1117,16 @@ function renderWBS() {
   headerRow.innerHTML = columnTemplate;
   container.appendChild(headerRow);
 
-  // Wire up resource rate toggle
+  // Wire up resource rate toggles - all of them
   if (laborMode) {
-    const rateToggle = document.getElementById("resourceRateToggle");
-    if (rateToggle) {
-      rateToggle.addEventListener("click", (e) => {
+    const rateToggles = headerRow.querySelectorAll(".resourceRateToggle");
+    rateToggles.forEach(toggle => {
+      toggle.addEventListener("click", (e) => {
         e.stopPropagation();
         showResourceRates = !showResourceRates;
         renderWBS();
       });
-    }
+    });
   }
 
   // Add rate detail rows if resources are expanded
