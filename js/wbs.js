@@ -755,8 +755,11 @@ function renderWBSNode(container, node, level = 1) {
         deleteBtn.style.cursor = "pointer";
         deleteBtn.style.marginRight = "8px";
         deleteBtn.style.color = "var(--text-muted)";
-        deleteBtn.style.fontSize = "16px";
+        deleteBtn.style.fontSize = "14px";
+        deleteBtn.style.opacity = "0.6";
         deleteBtn.title = "Delete activity";
+        deleteBtn.onmouseenter = () => deleteBtn.style.opacity = "1";
+        deleteBtn.onmouseleave = () => deleteBtn.style.opacity = "0.6";
         deleteBtn.onclick = (e) => {
           e.stopPropagation();
           // Check if activity has non-zero hours
