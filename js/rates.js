@@ -108,6 +108,73 @@ window.Rates = (function () {
     }
   }
 
+  async function resolveRates(resource) {
+    if (!resource) return null;
+    const actualResourceId = resource.resourceId || resource.id;
+
+    let baseRates = null;
+    const hasExplicitCost = Number.isFinite(resource.costRate) && resource.costRate > 0;
+    const hasExplicitSell = Number.isFinite(resource.chargeoutRate) && resource.chargeoutRate > 0;
+    const otMult = resource.otMultiplier || 1.5;
+
+    if (hasExplicitCost || hasExplicitSell) {
+      const costRegular = hasExplicitCost ? resource.costRate : 60;
+      const sellRegular = hasExplicitSell ? resource.chargeoutRate : 120;
+      baseRates = {
+        costRegular,
+        costOT: costRegular * otMult,
+        sellRegular,
+        sellOT: sellRegular * otMult
+      };
+    } else {
+      try {
+        baseRates = await getRates(actualResourceId);
+      } catch (e) {
+        baseRates = null;
+      }
+
+      if (!baseRates) {
+        const costRegular = resource.costRate || 60;
+        const sellRegular = resource.chargeoutRate || 120;
+        baseRates = {
+          costRegular,
+          costOT: costRegular * otMult,
+          sellRegular,
+          sellOT: sellRegular * otMult
+        };
+      }
+    }
+
+    let costRegular = baseRates.costRegular;
+    let costOT = baseRates.costOT;
+    let sellRegular = baseRates.sellRegular;
+    let sellOT = baseRates.sellOT;
+
+    if (resource.overrideCostReg !== undefined) {
+      costRegular = resource.overrideCostReg;
+      if (resource.overrideCostOT === undefined) {
+        costOT = costRegular * 1.5;
+      }
+    }
+
+    if (resource.overrideCostOT !== undefined) {
+      costOT = resource.overrideCostOT;
+    }
+
+    if (resource.overrideSellReg !== undefined) {
+      sellRegular = resource.overrideSellReg;
+      if (resource.overrideSellOT === undefined) {
+        sellOT = sellRegular * 1.5;
+      }
+    }
+
+    if (resource.overrideSellOT !== undefined) {
+      sellOT = resource.overrideSellOT;
+    }
+
+    return { costRegular, costOT, sellRegular, sellOT };
+  }
+
   async function listResources() {
     const data = await load();
     const custom = ResourceManager.getCustomResources();
@@ -119,5 +186,5 @@ window.Rates = (function () {
     };
   }
 
-  return { getRates, listResources, getResourceById, load, loadNamedResources };
+  return { getRates, resolveRates, listResources, getResourceById, load, loadNamedResources };
 })();

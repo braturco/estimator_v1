@@ -32,6 +32,9 @@ window.expandedLaborNodes = new Set();
 // Track if resource rates are expanded (boolean)
 window.showResourceRates = false;
 
+// Financial column mode
+window.financialMode = "detailed"; // "detailed" or "simple"
+
 // Theme preference
 window.currentTheme = "dark"; // "dark" or "light"
 
@@ -83,6 +86,7 @@ function getAppState() {
     expandedPricingMethods,
     ohRates,
     currentTheme,
+    financialMode,
     collapsedNodes: Array.from(collapsedNodes || []),
     expandedLaborNodes: Array.from(expandedLaborNodes || [])
   };
@@ -102,6 +106,7 @@ function applyAppState(state) {
   }
   if (state.ohRates && typeof state.ohRates === "object") window.ohRates = state.ohRates;
   if (state.currentTheme) window.currentTheme = state.currentTheme;
+  if (state.financialMode) window.financialMode = state.financialMode;
   if (Array.isArray(state.collapsedNodes)) window.collapsedNodes = new Set(state.collapsedNodes);
   if (Array.isArray(state.expandedLaborNodes)) window.expandedLaborNodes = new Set(state.expandedLaborNodes);
 }

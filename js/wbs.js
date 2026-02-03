@@ -6,12 +6,235 @@ if (typeof window.expandedLaborNodes === 'undefined') {
 }
 
 let selectedNodeId = null;
+let selectedActivityNodeId = null; // Track which node owns the selected activity
+let selectedActivityId = null; // Track specific activity ID
+let financialColumns = [];
+
+function getExpenseItems(nodeId, type, activityId) {
+  // If activity ID is provided, get from activity; otherwise sum from all activities
+  const entry = laborActivities[nodeId];
+  if (!entry || !Array.isArray(entry.activities)) {
+    return [];
+  }
+  
+  if (activityId) {
+    const activity = entry.activities.find(a => a.id === activityId);
+    if (!activity || !activity.expenses) {
+      return [];
+    }
+    return activity.expenses[type] || [];
+  } else {
+    // Sum all activities
+    let allItems = [];
+    entry.activities.forEach(activity => {
+      if (activity.expenses && activity.expenses[type]) {
+        allItems = allItems.concat(activity.expenses[type]);
+      }
+    });
+    return allItems;
+  }
+}
+
+function updateExpenseTotals(nodeId) {
+  const node = findNodeById(WBS_DATA, nodeId);
+  if (!node) return;
+  
+  // Sum expenses from all activities
+  let subsTotal = 0;
+  let odcTotal = 0;
+  let subsSellTotal = 0;
+  let odcSellTotal = 0;
+  
+  const entry = laborActivities[nodeId];
+  if (entry && Array.isArray(entry.activities)) {
+    entry.activities.forEach(activity => {
+      if (activity.expenses) {
+        subsTotal += activity.expenses.subs.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+        odcTotal += activity.expenses.odc.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+        subsSellTotal += activity.expenses.subs.reduce((sum, item) => sum + Number(item.sell || 0), 0);
+        odcSellTotal += activity.expenses.odc.reduce((sum, item) => sum + Number(item.sell || 0), 0);
+      }
+    });
+  }
+  
+  node.subcontractors = subsTotal;
+  node.odc = odcTotal;
+  node.subcontractorsSell = subsSellTotal;
+  node.odcSell = odcSellTotal;
+  
+  // Trigger recalculation
+  if (window.Calculations && window.Calculations.recalculate) {
+    window.Calculations.recalculate();
+  }
+}
+
+function openExpenseDetails(nodeId, type, activityId) {
+  const node = findNodeById(WBS_DATA, nodeId);
+  if (!node) return;
+
+  if (!window.Modal || typeof Modal.open !== "function") {
+    alert("Modal system is not available.");
+    return;
+  }
+
+  // Get the activity
+  const entry = laborActivities[nodeId];
+  if (!entry || !Array.isArray(entry.activities)) {
+    alert("No activities found for this task");
+    return;
+  }
+
+  const activity = entry.activities.find(a => a.id === activityId);
+  if (!activity) {
+    alert("Activity not found");
+    return;
+  }
+
+  // Ensure expense details exist on the activity
+  if (!activity.expenses) {
+    activity.expenses = { subs: [], odc: [] };
+  }
+
+  const items = activity.expenses[type];
+  const title = type === "subs" ? "Subconsultants" : "ODC";
+
+  Modal.open({
+    title: `${title} Details — ${activity.name}`,
+    content: (container) => {
+      container.innerHTML = "";
+      container.style.padding = "10px";
+
+      const header = document.createElement("div");
+      header.style.display = "grid";
+      header.style.gridTemplateColumns = "1fr 100px 80px 100px 32px";
+      header.style.gap = "6px";
+      header.style.fontSize = "11px";
+      header.style.fontWeight = "600";
+      header.style.color = "var(--text-muted)";
+      header.style.marginBottom = "6px";
+      header.innerHTML = `
+        <div>Description</div>
+        <div style="text-align:right;">Cost</div>
+        <div style="text-align:right;">Markup %</div>
+        <div style="text-align:right;">Sell</div>
+        <div></div>
+      `;
+      container.appendChild(header);
+
+      const list = document.createElement("div");
+      list.style.display = "flex";
+      list.style.flexDirection = "column";
+      list.style.gap = "6px";
+      container.appendChild(list);
+
+      const renderRows = () => {
+        list.innerHTML = "";
+        items.forEach((item, idx) => {
+          const row = document.createElement("div");
+          row.style.display = "grid";
+          row.style.gridTemplateColumns = "1fr 100px 80px 100px 32px";
+          row.style.gap = "6px";
+          row.style.alignItems = "center";
+
+          const desc = document.createElement("input");
+          desc.type = "text";
+          desc.placeholder = "Description";
+          desc.value = item.description || "";
+          desc.addEventListener("input", () => {
+            item.description = desc.value;
+          });
+
+          const cost = document.createElement("input");
+          cost.type = "number";
+          cost.min = "0";
+          cost.step = "0.01";
+          cost.value = item.cost ?? 0;
+          cost.style.textAlign = "right";
+          cost.addEventListener("input", () => {
+            item.cost = parseFloat(cost.value) || 0;
+            // Auto-calculate sell based on markup
+            const markup = parseFloat(markupInput.value) || 0;
+            item.sell = item.cost * (1 + markup / 100);
+            sell.value = item.sell.toFixed(2);
+          });
+
+          const markupInput = document.createElement("input");
+          markupInput.type = "number";
+          markupInput.min = "0";
+          markupInput.step = "0.1";
+          markupInput.value = item.markup ?? 10;
+          markupInput.style.textAlign = "right";
+          markupInput.addEventListener("input", () => {
+            item.markup = parseFloat(markupInput.value) || 0;
+            // Auto-calculate sell based on markup
+            item.sell = item.cost * (1 + item.markup / 100);
+            sell.value = item.sell.toFixed(2);
+          });
+
+          const sell = document.createElement("input");
+          sell.type = "number";
+          sell.min = "0";
+          sell.step = "0.01";
+          sell.value = item.sell ?? 0;
+          sell.style.textAlign = "right";
+          sell.addEventListener("input", () => {
+            item.sell = parseFloat(sell.value) || 0;
+          });
+
+          const remove = document.createElement("button");
+          remove.className = "btn btn-secondary";
+          remove.textContent = "×";
+          remove.style.width = "28px";
+          remove.addEventListener("click", () => {
+            items.splice(idx, 1);
+            renderRows();
+          });
+
+          row.appendChild(desc);
+          row.appendChild(cost);
+          row.appendChild(markupInput);
+          row.appendChild(sell);
+          row.appendChild(remove);
+          list.appendChild(row);
+        });
+      };
+
+      const addBtn = document.createElement("button");
+      addBtn.className = "btn btn-secondary";
+      addBtn.textContent = "+ Add Item";
+      addBtn.style.marginTop = "8px";
+      addBtn.addEventListener("click", () => {
+        items.push({ id: crypto.randomUUID(), description: "", cost: 0, markup: 10, sell: 0 });
+        renderRows();
+      });
+
+      container.appendChild(addBtn);
+      renderRows();
+    },
+    onSave: () => {
+      updateExpenseTotals(nodeId);
+      // Always do a full render to ensure icon appears
+      renderWBS();
+      Modal.close();
+    }
+  });
+}
+
+window.openExpenseDetails = openExpenseDetails;
+
+window.openExpenseDetails = openExpenseDetails;
 
 // ---------------------- selection ----------------------
 function selectRow(id) {
   selectedNodeId = id;
+  selectedActivityNodeId = null; // Clear activity selection
+  selectedActivityId = null; // Clear activity ID
   document.querySelectorAll(".wbs-row").forEach(row => {
     row.classList.toggle("wbs-row-selected", row.dataset.id === id);
+  });
+  // Clear activity row highlights
+  document.querySelectorAll(".wbs-row-active").forEach(el => {
+    el.classList.remove("wbs-row-active");
   });
 }
 
@@ -62,14 +285,21 @@ function addChildById(id) {
     id: crypto.randomUUID(),
     name,
     code: "",
-    directLabour: 0,
-    expenses: 0,
-    burdened: 0,
-    netRevenue: 0,
     grossRevenue: 0,
-    nm: 0,
-    gm: 0,
+    subcontractors: 0,
+    odc: 0,
+    directLabor: 0,
+    netRevenue: 0,
     dlm: 0,
+    fringeBurden: 0,
+    pcm: 0,
+    pcmPct: 0,
+    ohBurden: 0,
+    burdenedLabor: 0,
+    totalCost: 0,
+    netMargin: 0,
+    nmPct: 0,
+    gmPct: 0,
     children: []
   });
 
@@ -83,7 +313,10 @@ function deleteNode(id) {
 
   // Check if node has non-zero values
   function hasNonZeroValues(n) {
-    if (n.directLabour || n.expenses || n.burdened || n.netRevenue || n.grossRevenue) {
+    if (
+      n.grossRevenue || n.subcontractors || n.odc || n.directLabor || n.netRevenue ||
+      n.fringeBurden || n.pcm || n.ohBurden || n.burdenedLabor || n.totalCost || n.netMargin
+    ) {
       return true;
     }
     if (n.children && n.children.length > 0) {
@@ -198,25 +431,37 @@ function calculateLaborRollup(node, resourceId, type) {
 // ---------------------- totals -------------------------
 function calculateTotals() {
   const totals = {
-    directLabour: 0,
-    expenses: 0,
-    burdened: 0,
-    netRevenue: 0,
     grossRevenue: 0,
-    nm: 0,
-    gm: 0,
-    dlm: 0
+    subcontractors: 0,
+    odc: 0,
+    directLabor: 0,
+    netRevenue: 0,
+    dlm: 0,
+    fringeBurden: 0,
+    pcm: 0,
+    pcmPct: 0,
+    ohBurden: 0,
+    burdenedLabor: 0,
+    totalCost: 0,
+    netMargin: 0,
+    nmPct: 0,
+    gmPct: 0
   };
 
   function walk(node) {
     const hasChildren = node.children && node.children.length > 0;
     if (!hasChildren) {
-      totals.directLabour += Number(node.directLabour || 0);
-      totals.expenses += Number(node.expenses || 0);
-      totals.burdened += Number(node.burdened || 0);
-      totals.netRevenue += Number(node.netRevenue || 0);
       totals.grossRevenue += Number(node.grossRevenue || 0);
-      totals.dlm += Number(node.dlm || 0);
+      totals.subcontractors += Number(node.subcontractors || 0);
+      totals.odc += Number(node.odc || 0);
+      totals.directLabor += Number(node.directLabor || 0);
+      totals.netRevenue += Number(node.netRevenue || 0);
+      totals.fringeBurden += Number(node.fringeBurden || 0);
+      totals.pcm += Number(node.pcm || 0);
+      totals.ohBurden += Number(node.ohBurden || 0);
+      totals.burdenedLabor += Number(node.burdenedLabor || 0);
+      totals.totalCost += Number(node.totalCost || 0);
+      totals.netMargin += Number(node.netMargin || 0);
     } else {
       node.children.forEach(walk);
     }
@@ -224,17 +469,10 @@ function calculateTotals() {
 
   WBS_DATA.forEach(walk);
 
-  if (totals.grossRevenue !== 0) {
-    totals.gm = (totals.grossRevenue - totals.burdened - totals.expenses) / totals.grossRevenue;
-  } else {
-    totals.gm = 0;
-  }
-
-  if (totals.netRevenue !== 0) {
-    totals.nm = (totals.netRevenue - totals.burdened - totals.expenses) / totals.netRevenue;
-  } else {
-    totals.nm = 0;
-  }
+  totals.dlm = totals.directLabor > 0 ? (totals.netRevenue / totals.directLabor) : 0;
+  totals.pcmPct = totals.grossRevenue > 0 ? (totals.pcm / totals.grossRevenue) : 0;
+  totals.nmPct = totals.netRevenue > 0 ? (totals.netMargin / totals.netRevenue) : 0;
+  totals.gmPct = totals.grossRevenue > 0 ? ((totals.grossRevenue - totals.totalCost) / totals.grossRevenue) : 0;
 
   return totals;
 }
@@ -301,47 +539,18 @@ function renderTotalsRow() {
   // Tags column
   const tagsCell = document.createElement("div");
   totalsEl.appendChild(tagsCell);
-  
-  // Financial columns
-  const dlCell = document.createElement("div");
-  dlCell.className = "wbs-fin-cell";
-  dlCell.textContent = formatMoney(t.directLabour);
-  totalsEl.appendChild(dlCell);
-  
-  const expCell = document.createElement("div");
-  expCell.className = "wbs-fin-cell";
-  expCell.textContent = formatMoney(t.expenses);
-  totalsEl.appendChild(expCell);
-  
-  const burCell = document.createElement("div");
-  burCell.className = "wbs-fin-cell";
-  burCell.textContent = formatMoney(t.burdened);
-  totalsEl.appendChild(burCell);
-  
-  const netCell = document.createElement("div");
-  netCell.className = "wbs-fin-cell";
-  netCell.textContent = formatMoney(t.netRevenue);
-  totalsEl.appendChild(netCell);
-  
-  const grossCell = document.createElement("div");
-  grossCell.className = "wbs-fin-cell";
-  grossCell.textContent = formatMoney(t.grossRevenue);
-  totalsEl.appendChild(grossCell);
-  
-  const nmCell = document.createElement("div");
-  nmCell.className = "wbs-fin-cell";
-  nmCell.textContent = formatPercent(t.nm);
-  totalsEl.appendChild(nmCell);
-  
-  const gmCell = document.createElement("div");
-  gmCell.className = "wbs-fin-cell";
-  gmCell.textContent = formatPercent(t.gm);
-  totalsEl.appendChild(gmCell);
-  
-  const dlmCell = document.createElement("div");
-  dlmCell.className = "wbs-fin-cell";
-  dlmCell.textContent = formatMoney(t.dlm);
-  totalsEl.appendChild(dlmCell);
+
+  const formatByType = (value, type) => {
+    if (type === "percent") return formatPercent(value);
+    return formatMoney(value);
+  };
+
+  financialColumns.forEach((col) => {
+    const cell = document.createElement("div");
+    cell.className = "wbs-fin-cell";
+    cell.textContent = formatByType(t[col.key], col.format);
+    totalsEl.appendChild(cell);
+  });
 }
 
 // ---------------------- rendering ----------------------
@@ -489,6 +698,28 @@ function renderWBSNode(container, node, level = 1) {
   const nameClass = hasChildren ? (collapsed ? "wbs-name rollup collapsed" : "wbs-name rollup") : "wbs-name";
   const expandIconHtml = hasChildren ? `<span class="wbs-expand-icon">${collapsed ? '[+]' : '[–]'}</span>` : '<span class="wbs-expand-spacer"></span>';
 
+  const formatByType = (value, type) => {
+    if (type === "percent") return formatPercent(value);
+    return formatMoney(value);
+  };
+
+  const financialHtml = financialColumns.map(col => {
+    const value = node[col.key];
+    if (col.key === "subcontractors" || col.key === "odc") {
+      const type = col.key === "subcontractors" ? "subs" : "odc";
+      const items = getExpenseItems(node.id, type);
+      const hasEntries = items.length > 0;
+      const iconHtml = hasEntries ? `<button class="expense-detail-btn" data-expense-type="${type}" title="View details">🗒️</button>` : '';
+      return `
+        <div class="wbs-fin-cell expense-cell" data-expense-type="${type}">
+          ${iconHtml}
+          <span class="expense-value">${formatByType(value, col.format)}</span>
+        </div>
+      `;
+    }
+    return `<div class="wbs-fin-cell">${formatByType(value, col.format)}</div>`;
+  }).join("");
+
   row.innerHTML = `
     <div class="wbs-code">${node.code || ""}</div>
 	<div class="${nameClass} wbs-indent-${level}" data-id="${node.id}">
@@ -497,37 +728,28 @@ function renderWBSNode(container, node, level = 1) {
 	</div>
     ${laborCellsHtml}
     <div></div>
-    <div class="wbs-fin-cell">${formatMoney(node.directLabour)}</div>
-    <div class="wbs-fin-cell">${formatMoney(node.expenses)}</div>
-    <div class="wbs-fin-cell">${formatMoney(node.burdened)}</div>
-    <div class="wbs-fin-cell">${formatMoney(node.netRevenue)}</div>
-    <div class="wbs-fin-cell">${formatMoney(node.grossRevenue)}</div>
-    <div class="wbs-fin-cell">${formatPercent(node.nm)}</div>
-    <div class="wbs-fin-cell">${formatPercent(node.gm)}</div>
-    <div class="wbs-fin-cell">${formatMoney(node.dlm)}</div>
+    ${financialHtml}
   `;
+  
+  if (node.directLabor > 0 || node.netRevenue > 0) {
+    console.log(`📋 Rendered ${node.name}: DL=${node.directLabor}, Rev=${node.netRevenue}`);
+  }
 
   container.appendChild(row);
 
-  // Add delete button for all nodes (phases, tasks, work items)
-  const nameContainer = row.querySelector(".wbs-name");
-  if (nameContainer) {
-    const deleteBtn = document.createElement("span");
-    deleteBtn.textContent = "× ";
-    deleteBtn.style.cursor = "pointer";
-    deleteBtn.style.marginRight = "8px";
-    deleteBtn.style.color = "var(--text-muted)";
-    deleteBtn.style.fontSize = "14px";
-    deleteBtn.style.opacity = "0.6";
-    deleteBtn.title = "Delete";
-    deleteBtn.onmouseenter = () => deleteBtn.style.opacity = "1";
-    deleteBtn.onmouseleave = () => deleteBtn.style.opacity = "0.6";
-    deleteBtn.onclick = (e) => {
+  row.querySelectorAll(".expense-detail-btn").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
       e.stopPropagation();
-      deleteNode(node.id);
-    };
-    nameContainer.insertBefore(deleteBtn, nameContainer.firstChild);
-  }
+      openExpenseDetails(node.id, btn.dataset.expenseType);
+    });
+  });
+
+  row.querySelectorAll(".expense-cell").forEach((cell) => {
+    cell.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openExpenseDetails(node.id, cell.dataset.expenseType);
+    });
+  });
 
   // Add pill zones for leaf nodes AFTER row is added to DOM
   if (isLeaf) {
@@ -542,13 +764,17 @@ function renderWBSNode(container, node, level = 1) {
       tagZoneContainer.appendChild(tagZone);
     }
 
-    // Render activity rows for this node in labor mode
-    if (window.expandedPricingMethods.labor && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
+    // Render activity rows when any pricing method is expanded
+    const anyPricingExpanded = window.expandedPricingMethods.labor || window.expandedPricingMethods.expense || window.expandedPricingMethods.usages;
+    if (anyPricingExpanded && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
       const setActiveActivityRow = (rowEl) => {
         document.querySelectorAll(".wbs-row-active").forEach(el => {
           el.classList.remove("wbs-row-active");
         });
         rowEl.classList.add("wbs-row-active");
+        // Track the node that owns this activity and the activity ID
+        selectedActivityNodeId = rowEl.dataset.nodeId;
+        selectedActivityId = rowEl.dataset.activityId;
       };
 
       const createLaborInput = (rowEl, value, onChange, label, isOddResource, activityId, resourceId, type) => {
@@ -600,6 +826,10 @@ function renderWBSNode(container, node, level = 1) {
         activityRow.draggable = true;
 
         activityRow.addEventListener("click", (e) => {
+          // Let expense button clicks bubble to container handler
+          if (e.target.closest(".expense-detail-btn") || e.target.closest(".expense-cell")) {
+            return;
+          }
           e.stopPropagation();
           setActiveActivityRow(activityRow);
         });
@@ -749,42 +979,6 @@ function renderWBSNode(container, node, level = 1) {
         nameCell.className = `wbs-name wbs-indent-${level + 1}`;
         nameCell.dataset.activityId = activity.id;
         
-        // Add delete button
-        const deleteBtn = document.createElement("span");
-        deleteBtn.textContent = "× ";
-        deleteBtn.style.cursor = "pointer";
-        deleteBtn.style.marginRight = "8px";
-        deleteBtn.style.color = "var(--text-muted)";
-        deleteBtn.style.fontSize = "14px";
-        deleteBtn.style.opacity = "0.6";
-        deleteBtn.title = "Delete activity";
-        deleteBtn.onmouseenter = () => deleteBtn.style.opacity = "1";
-        deleteBtn.onmouseleave = () => deleteBtn.style.opacity = "0.6";
-        deleteBtn.onclick = (e) => {
-          e.stopPropagation();
-          // Check if activity has non-zero hours
-          let hasHours = false;
-          for (const resId in activity.hours) {
-            if (activity.hours[resId].reg > 0 || activity.hours[resId].ot > 0) {
-              hasHours = true;
-              break;
-            }
-          }
-          
-          if (hasHours) {
-            if (!confirm(`Delete "${activity.name}"? This activity has hours entered.`)) {
-              return;
-            }
-          }
-          
-          // Remove from activities array
-          const actIndex = laborActivities[node.id].activities.findIndex(a => a.id === activity.id);
-          if (actIndex !== -1) {
-            laborActivities[node.id].activities.splice(actIndex, 1);
-            renderWBS();
-          }
-        };
-        
         const label = document.createElement("span");
         label.className = "wbs-activity-label";
         label.textContent = activity.name;
@@ -811,26 +1005,28 @@ function renderWBSNode(container, node, level = 1) {
           };
         };
         
-        nameCell.appendChild(deleteBtn);
         nameCell.appendChild(label);
         activityRow.appendChild(nameCell);
 
-        laborResources.forEach((res, idx) => {
-          if (!activity.hours[res.id]) {
-            activity.hours[res.id] = { reg: 0, ot: 0 };
-          }
+        // Only render labor resource inputs if labor mode is expanded
+        if (window.expandedPricingMethods.labor) {
+          laborResources.forEach((res, idx) => {
+            if (!activity.hours[res.id]) {
+              activity.hours[res.id] = { reg: 0, ot: 0 };
+            }
 
-          const isOdd = (idx % 2 === 1);
-          const regInput = createLaborInput(activityRow, activity.hours[res.id].reg, (val) => {
-            activity.hours[res.id].reg = val;
-          }, "Reg", isOdd, activity.id, res.id, "reg");
-          const otInput = createLaborInput(activityRow, activity.hours[res.id].ot, (val) => {
-            activity.hours[res.id].ot = val;
-          }, "OT", isOdd, activity.id, res.id, "ot");
+            const isOdd = (idx % 2 === 1);
+            const regInput = createLaborInput(activityRow, activity.hours[res.id].reg, (val) => {
+              activity.hours[res.id].reg = val;
+            }, "Reg", isOdd, activity.id, res.id, "reg");
+            const otInput = createLaborInput(activityRow, activity.hours[res.id].ot, (val) => {
+              activity.hours[res.id].ot = val;
+            }, "OT", isOdd, activity.id, res.id, "ot");
 
-          activityRow.appendChild(regInput);
-          activityRow.appendChild(otInput);
-        });
+            activityRow.appendChild(regInput);
+            activityRow.appendChild(otInput);
+          });
+        }
 
         const tagsCell = document.createElement("div");
         activityRow.appendChild(tagsCell);
@@ -851,68 +1047,100 @@ function renderWBSNode(container, node, level = 1) {
             const resource = laborResources.find(r => r.id === columnId);
             if (!resource) continue;
 
-            // Get rates (check overrides first)
-            let costRegular, costOT, sellRegular, sellOT;
-            
-            if (resource.overrideCostReg !== undefined || resource.overrideSellReg !== undefined) {
-              costRegular = resource.overrideCostReg !== undefined ? resource.overrideCostReg : resource.costRate || 60;
-              costOT = resource.overrideCostOT !== undefined ? resource.overrideCostOT : (costRegular * 1.5);
-              sellRegular = resource.overrideSellReg !== undefined ? resource.overrideSellReg : resource.chargeoutRate || 120;
-              sellOT = resource.overrideSellOT !== undefined ? resource.overrideSellOT : (sellRegular * 1.5);
-            } else {
-              const actualResourceId = resource.resourceId || columnId;
-              try {
-                const rates = await Rates.getRates(actualResourceId);
-                if (rates) {
-                  costRegular = rates.costRegular;
-                  costOT = rates.costOT;
-                  sellRegular = rates.sellRegular;
-                  sellOT = rates.sellOT;
-                } else {
-                  continue;
-                }
-              } catch (err) {
-                continue;
-              }
+            let rates;
+            try {
+              rates = await Rates.resolveRates(resource);
+            } catch (err) {
+              rates = null;
             }
+            if (!rates) continue;
 
-            directLaborReg += regHours * costRegular;
-            directLaborOT += otHours * costOT;
-            revenue += regHours * sellRegular + otHours * sellOT;
+            directLaborReg += regHours * rates.costRegular;
+            directLaborOT += otHours * rates.costOT;
+            revenue += regHours * rates.sellRegular + otHours * rates.sellOT;
           }
 
-          const directLabor = directLaborReg + directLaborOT;
-          
-          // Apply OH/burden using component rates
-          const ohRegRate = window.getTotalOHRate ? window.getTotalOHRate('regular') : 1.10;
-          const ohOTRate = window.getTotalOHRate ? window.getTotalOHRate('overtime') : 1.10;
-          const burdenedLabor = directLaborReg * (1 + ohRegRate) + directLaborOT * (1 + ohOTRate);
+          const rawLabor = directLaborReg + directLaborOT;
 
-          const expenses = 0; // Activities don't have expenses
-          const netRevenue = revenue;
-          const grossRevenue = netRevenue * (node.gmMultiplier || 1.15);
-          
-          const nm = netRevenue > 0 ? (netRevenue - burdenedLabor - expenses) / netRevenue : 0;
-          const gm = grossRevenue > 0 ? (grossRevenue - burdenedLabor - expenses) / grossRevenue : 0;
-          const dlm = directLabor > 0 ? (revenue - burdenedLabor) : 0;
+          // Get expense values from this activity
+          const subsItems = activity.expenses?.subs || [];
+          const odcItems = activity.expenses?.odc || [];
+          const subsCost = subsItems.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+          const odcCost = odcItems.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+          const subsSell = subsItems.reduce((sum, item) => sum + Number(item.sell || 0), 0);
+          const odcSell = odcItems.reduce((sum, item) => sum + Number(item.sell || 0), 0);
 
-          return { directLabor, expenses, burdenedLabor, netRevenue, grossRevenue, nm, gm, dlm };
+          const grossRevenue = revenue + subsSell + odcSell;
+          const netRevenue = grossRevenue - subsCost - odcCost;
+
+          const fringeRegRate = window.ohRates?.regular?.laborFringe ?? 0;
+          const fringeOtRate = window.ohRates?.overtime?.laborFringe ?? fringeRegRate;
+          const ohRegRate = (window.ohRates?.regular?.operatingCosts ?? 0) + (window.ohRates?.regular?.operatingOH ?? 0);
+          const ohOtRate = (window.ohRates?.overtime?.operatingCosts ?? 0) + (window.ohRates?.overtime?.operatingOH ?? 0);
+
+          const fringeBurden = (directLaborReg * fringeRegRate) + (directLaborOT * fringeOtRate);
+          const ohBurden = (directLaborReg * ohRegRate) + (directLaborOT * ohOtRate);
+          const burdenedLabor = rawLabor + fringeBurden + ohBurden;
+          const totalCost = burdenedLabor + subsCost + odcCost;
+
+          const dlm = rawLabor > 0 ? (netRevenue / rawLabor) : 0;
+          const pcm = netRevenue - rawLabor - fringeBurden;
+          const pcmPct = grossRevenue > 0 ? (pcm / grossRevenue) : 0;
+          const netMargin = netRevenue - rawLabor - fringeBurden - ohBurden;
+          const nmPct = netRevenue > 0 ? (netMargin / netRevenue) : 0;
+          const gmPct = grossRevenue > 0 ? ((grossRevenue - totalCost) / grossRevenue) : 0;
+
+          return {
+            grossRevenue,
+            subcontractors: subsCost,
+            odc: odcCost,
+            rawLabor,
+            netRevenue,
+            dlm,
+            fringeBurden,
+            pcm,
+            pcmPct,
+            ohBurden,
+            burdenedLabor,
+            totalCost,
+            netMargin,
+            nmPct,
+            gmPct
+          };
         }
 
         // Add financial cells with calculated values
         const finCells = [];
         calculateActivityFinancials().then(financials => {
-          finCells[0].textContent = formatMoney(financials.directLabor);
-          finCells[1].textContent = formatMoney(financials.expenses);
-          finCells[2].textContent = formatMoney(financials.burdenedLabor);
-          finCells[3].textContent = formatMoney(financials.netRevenue);
-          finCells[4].textContent = formatMoney(financials.grossRevenue);
-          finCells[5].textContent = formatPercent(financials.nm);
-          finCells[6].textContent = formatPercent(financials.gm);
-          finCells[7].textContent = formatMoney(financials.dlm);
+          console.log(`💰 Activity ${activity.name} financials:`, financials);
+          financialColumns.forEach((col, idx) => {
+            const cell = finCells[idx];
+            if (!cell) return;
+            
+            // Special handling for expense columns
+            if (col.key === "subcontractors" || col.key === "odc") {
+              const type = col.key === "subcontractors" ? "subs" : "odc";
+              const items = activity.expenses?.[type] || [];
+              const hasEntries = items.length > 0;
+              console.log(`📝 Activity ${activity.name} ${type}: ${items.length} items, value=${financials[col.key]}`);
+              const iconHtml = hasEntries ? `<button class="expense-detail-btn" data-expense-type="${type}" title="View details">🗒️</button>` : '';
+              cell.innerHTML = `
+                ${iconHtml}
+                <span class="expense-value">${formatMoney(financials[col.key])}</span>
+              `;
+              cell.className = "wbs-fin-cell expense-cell";
+              cell.dataset.expenseType = type;
+              cell.style.fontStyle = "normal";
+            } else {
+              const value = financials[col.key];
+              cell.textContent = col.format === "percent"
+                ? formatPercent(value)
+                : formatMoney(value);
+            }
+          });
         });
 
-        const finCellCount = 8;
+        const finCellCount = financialColumns.length;
         for (let i = 0; i < finCellCount; i++) {
           const finCell = document.createElement("div");
           finCell.className = "wbs-fin-cell";
@@ -925,19 +1153,6 @@ function renderWBSNode(container, node, level = 1) {
 
         container.appendChild(activityRow);
       });
-    }
-    
-    // Check if labor is expanded for this node
-    if (expandedLaborNodes.has(node.id) && wbsPills[node.id] && wbsPills[node.id].estimateType && wbsPills[node.id].estimateType.includes("labor")) {
-      console.log(`✅ Labor expanded for node ${node.id}, rendering expansion`);
-      // Add labor expansion row
-      const expansionRow = document.createElement("div");
-      expansionRow.className = "wbs-row labor-expansion-row";
-      expansionRow.dataset.id = node.id + "-labor-expansion";
-      container.appendChild(expansionRow);
-      
-      // Render the expansion UI
-      LaborExpansion.renderExpansion(expansionRow, node.id, node);
     }
   }
 
@@ -966,6 +1181,42 @@ function renderWBSNode(container, node, level = 1) {
 function renderWBS() {
   const container = document.getElementById("wbsContainer");
   if (!container) return;
+
+  if (!container._expenseClickHandlerAttached) {
+    container.addEventListener("click", (e) => {
+      const btn = e.target.closest(".expense-detail-btn");
+      if (btn && btn.dataset.expenseType) {
+        e.stopPropagation();
+        const row = btn.closest(".wbs-row");
+        const nodeId = row?.dataset?.id;
+        const activityId = row?.dataset?.activityId;
+        
+        if (nodeId) {
+          if (activityId) {
+            // Activity row - extract task ID from compound ID
+            const taskId = row?.dataset?.nodeId; // Activity rows have data-node-id for the parent task
+            openExpenseDetails(taskId || nodeId.split('-')[0], btn.dataset.expenseType, activityId);
+          } else {
+            // Task row - no activity ID
+            openExpenseDetails(nodeId, btn.dataset.expenseType);
+          }
+        }
+        return;
+      }
+
+      const cell = e.target.closest(".expense-cell");
+      if (cell && cell.dataset.expenseType) {
+        e.stopPropagation();
+        // Only allow clicking expense cells on activity rows
+        if (!selectedActivityId || !selectedActivityNodeId) {
+          alert("Please select an activity row first, then click the expense cell");
+          return;
+        }
+        openExpenseDetails(selectedActivityNodeId, cell.dataset.expenseType, selectedActivityId);
+      }
+    });
+    container._expenseClickHandlerAttached = true;
+  }
 
   // Auto-select labor input text on focus
   if (!container._laborFocusHandlerAttached) {
@@ -1065,6 +1316,35 @@ function renderWBS() {
 
   container.innerHTML = "";
 
+  financialColumns = window.financialMode === "simple"
+    ? [
+        { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "130px" },
+        { key: "subcontractors", label: "Subs", format: "money", width: "120px" },
+        { key: "odc", label: "ODC", format: "money", width: "120px" },
+        { key: "directLabor", label: "Raw Labor", format: "money", width: "120px" },
+        { key: "totalCost", label: "Total Cost", format: "money", width: "120px" },
+        { key: "netRevenue", label: "Net Revenue", format: "money", width: "130px" },
+        { key: "nmPct", label: "NM%", format: "percent", width: "90px" },
+        { key: "dlm", label: "DLM", format: "money", width: "90px" }
+      ]
+    : [
+        { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "130px" },
+        { key: "subcontractors", label: "Subs", format: "money", width: "120px" },
+        { key: "odc", label: "ODC", format: "money", width: "120px" },
+        { key: "directLabor", label: "Raw Labor", format: "money", width: "130px" },
+        { key: "netRevenue", label: "Net Revenue", format: "money", width: "130px" },
+        { key: "dlm", label: "DLM", format: "money", width: "90px" },
+        { key: "fringeBurden", label: "Fringe Burden", format: "money", width: "120px" },
+        { key: "pcm", label: "PCM", format: "money", width: "120px" },
+        { key: "pcmPct", label: "PCM%", format: "percent", width: "90px" },
+        { key: "ohBurden", label: "OH Burden", format: "money", width: "120px" },
+        { key: "burdenedLabor", label: "Burdened Labor", format: "money", width: "130px" },
+        { key: "totalCost", label: "Total Cost", format: "money", width: "120px" },
+        { key: "netMargin", label: "Net Margin", format: "money", width: "120px" },
+        { key: "nmPct", label: "NM%", format: "percent", width: "90px" },
+        { key: "gmPct", label: "GM%", format: "percent", width: "90px" }
+      ];
+
   // Build column layout based on pricing methods
   let columnTemplate = `
     <div class="col-header" data-col="0">WBS<div class="col-resize-handle"></div></div>
@@ -1096,17 +1376,16 @@ function renderWBS() {
     }
   }
 
+  const tagColIndex = window.expandedPricingMethods.labor ? 2 + laborResources.length * 2 : 2;
   columnTemplate += `
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 2 + laborResources.length * 2 : 2}">Tags<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 3 + laborResources.length * 2 : 3}">Direct Labour<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 4 + laborResources.length * 2 : 4}">Expenses<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 5 + laborResources.length * 2 : 5}">Burdened<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 6 + laborResources.length * 2 : 6}">Net Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 7 + laborResources.length * 2 : 7}">Gross Revenue<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 8 + laborResources.length * 2 : 8}">NM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 9 + laborResources.length * 2 : 9}">GM%<div class="col-resize-handle"></div></div>
-    <div class="col-header" data-col="${window.expandedPricingMethods.labor ? 10 + laborResources.length * 2 : 10}">DLM<div class="col-resize-handle"></div></div>
+    <div class="col-header tags-header" data-col="${tagColIndex}">Tags<div class="col-resize-handle"></div></div>
   `;
+
+  financialColumns.forEach((col, idx) => {
+    columnTemplate += `
+      <div class="col-header fin-header" data-col="${tagColIndex + 1 + idx}">${col.label}<div class="col-resize-handle"></div></div>
+    `;
+  });
 
   // Build CSS column template
   let columnWidth = "100px 260px"; // WBS, Activity
@@ -1115,7 +1394,10 @@ function renderWBS() {
       columnWidth += " 75px 75px";
     }
   }
-  columnWidth += " 160px 120px 120px 120px 120px 120px 90px 90px 90px";
+  columnWidth += " 130px";
+  financialColumns.forEach(col => {
+    columnWidth += ` ${col.width}`;
+  });
   container.style.setProperty("--wbs-columns", columnWidth);
 
   const headerRow = document.createElement("div");
@@ -1173,7 +1455,7 @@ function renderWBS() {
     });
     
     // Empty cells for remaining columns
-    rateDetailHTML += `<div></div>`.repeat(9);
+    rateDetailHTML += `<div></div>`.repeat(1 + financialColumns.length);
     
     rateDetailRow.innerHTML = rateDetailHTML;
     container.appendChild(rateDetailRow);
@@ -1214,7 +1496,7 @@ function renderWBS() {
       `;
     });
     
-    sellRateHTML += `<div></div>`.repeat(9);
+    sellRateHTML += `<div></div>`.repeat(1 + financialColumns.length);
     
     sellRateRow.innerHTML = sellRateHTML;
     container.appendChild(sellRateRow);
@@ -1437,6 +1719,11 @@ function renderWBS() {
   if (typeof scheduleAutosave === "function") {
     scheduleAutosave();
   }
+  
+  // Trigger calculations after render to ensure financials are up-to-date
+  if (typeof window.Calculations !== "undefined" && typeof window.Calculations.recalculate === "function") {
+    window.Calculations.recalculate();
+  }
 }
 
 // ---------------------- top-level buttons --------------
@@ -1447,10 +1734,12 @@ function wireTopButtons() {
   const addResourceBtn = document.getElementById("addResourceBtn");
   const addActivityBtn = document.getElementById("addActivityBtn");
   const expensesToggle = document.getElementById("expensesToggle");
-  const addExpenseBtn = document.getElementById("addExpenseBtn");
+  const addSubconsultantBtn = document.getElementById("addSubconsultantBtn");
+  const addOdcBtn = document.getElementById("addOdcBtn");
   const usagesToggle = document.getElementById("usagesToggle");
   const addUsageBtn = document.getElementById("addUsageBtn");
   const resourceManagerBtn = document.getElementById("resourceManagerBtn");
+  const financialModeToggle = document.getElementById("financialModeToggle");
   const toolbar = document.querySelector(".wbs-toolbar");
 
   if (phaseBtn) {
@@ -1460,14 +1749,21 @@ function wireTopButtons() {
         name: "New Phase",
         level: 1,
         code: String(WBS_DATA.length + 1),
-        directLabour: 0,
-        expenses: 0,
-        burdened: 0,
-        netRevenue: 0,
         grossRevenue: 0,
-        nm: 0,
-        gm: 0,
+        subcontractors: 0,
+        odc: 0,
+        directLabor: 0,
+        netRevenue: 0,
         dlm: 0,
+        fringeBurden: 0,
+        pcm: 0,
+        pcmPct: 0,
+        ohBurden: 0,
+        burdenedLabor: 0,
+        totalCost: 0,
+        netMargin: 0,
+        nmPct: 0,
+        gmPct: 0,
         children: []
       });
       renderWBS();
@@ -1487,6 +1783,17 @@ function wireTopButtons() {
       
       // Update button icon
       laborResourcesToggle.textContent = (window.expandedPricingMethods.labor ? "⊟" : "⊞") + " Labor";
+      
+      // If expanding and a task is selected, expand its activities
+      if (window.expandedPricingMethods.labor && selectedNodeId && !expandedLaborNodes.has(selectedNodeId)) {
+        expandedLaborNodes.add(selectedNodeId);
+        if (!wbsPills[selectedNodeId]) {
+          wbsPills[selectedNodeId] = { estimateType: [], tag: [], unit: [] };
+        }
+        if (!wbsPills[selectedNodeId].laborData) {
+          wbsPills[selectedNodeId].laborData = { activities: [], resources: [] };
+        }
+      }
       
       // Initialize labor data if expanding for first time
       if (window.expandedPricingMethods.labor && laborResources.length === 0) {
@@ -1518,9 +1825,27 @@ function wireTopButtons() {
       // Update button icon
       expensesToggle.textContent = (window.expandedPricingMethods.expense ? "⊟" : "⊞") + " Expenses";
       
-      // Show/hide expense button
-      if (addExpenseBtn) {
-        addExpenseBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
+      // If expanding and a task is selected, expand activity rows
+      if (window.expandedPricingMethods.expense && selectedNodeId) {
+        if (!expandedLaborNodes.has(selectedNodeId)) {
+          expandedLaborNodes.add(selectedNodeId);
+          
+          // Initialize laborData if needed
+          if (!wbsPills[selectedNodeId]) {
+            wbsPills[selectedNodeId] = { estimateType: [], tag: [], unit: [] };
+          }
+          if (!wbsPills[selectedNodeId].laborData) {
+            wbsPills[selectedNodeId].laborData = { activities: [], resources: [] };
+          }
+        }
+      }
+      
+      // Show/hide expense buttons
+      if (addSubconsultantBtn) {
+        addSubconsultantBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
+      }
+      if (addOdcBtn) {
+        addOdcBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
       }
       
       renderWBS();
@@ -1532,9 +1857,24 @@ function wireTopButtons() {
       window.expandedPricingMethods.usages = !window.expandedPricingMethods.usages;
       
       // Update button icon
-      usagesToggle.textContent = (window.expandedPricingMethods.usages ? "⊟" : "⊞") + " Usages";
+      usagesToggle.textContent = (window.expandedPricingMethods.usages ? "⊟" : "⊞") + " Units";
       
-      // Show/hide usage button
+      // If expanding and a task is selected, expand activity rows
+      if (window.expandedPricingMethods.usages && selectedNodeId) {
+        if (!expandedLaborNodes.has(selectedNodeId)) {
+          expandedLaborNodes.add(selectedNodeId);
+          
+          // Initialize laborData if needed
+          if (!wbsPills[selectedNodeId]) {
+            wbsPills[selectedNodeId] = { estimateType: [], tag: [], unit: [] };
+          }
+          if (!wbsPills[selectedNodeId].laborData) {
+            wbsPills[selectedNodeId].laborData = { activities: [], resources: [] };
+          }
+        }
+      }
+      
+      // Show/hide unit button
       if (addUsageBtn) {
         addUsageBtn.style.display = window.expandedPricingMethods.usages ? "inline-flex" : "none";
       }
@@ -1673,7 +2013,8 @@ function wireTopButtons() {
       laborActivities[selectedNodeId].activities.push({
         id: crypto.randomUUID(),
         name: `Activity ${nextIndex}`,
-        hours: {}
+        hours: {},
+        expenses: { subs: [], odc: [] }
       });
       renderWBS();
     };
@@ -1681,20 +2022,35 @@ function wireTopButtons() {
     addActivityBtn.style.display = window.expandedPricingMethods.labor ? "inline-flex" : "none";
   }
 
-  if (addExpenseBtn) {
-    addExpenseBtn.onclick = () => {
-      if (!selectedNodeId) return;
-      alert("Expense functionality coming soon!");
-      // TODO: Implement expense form/modal
+  if (addSubconsultantBtn) {
+    addSubconsultantBtn.onclick = () => {
+      if (!selectedActivityId || !selectedActivityNodeId) {
+        alert("Please select an activity row first");
+        return;
+      }
+      
+      openExpenseDetails(selectedActivityNodeId, "subs", selectedActivityId);
     };
-    addExpenseBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
+    addSubconsultantBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
+  }
+
+  if (addOdcBtn) {
+    addOdcBtn.onclick = () => {
+      if (!selectedActivityId || !selectedActivityNodeId) {
+        alert("Please select an activity row first");
+        return;
+      }
+      
+      openExpenseDetails(selectedActivityNodeId, "odc", selectedActivityId);
+    };
+    addOdcBtn.style.display = window.expandedPricingMethods.expense ? "inline-flex" : "none";
   }
 
   if (addUsageBtn) {
     addUsageBtn.onclick = () => {
       if (!selectedNodeId) return;
-      alert("Usage/Unit functionality coming soon!");
-      // TODO: Implement usage form/modal
+      alert("Unit functionality coming soon!");
+      // TODO: Implement unit form/modal
     };
     addUsageBtn.style.display = window.expandedPricingMethods.usages ? "inline-flex" : "none";
   }
@@ -1702,6 +2058,23 @@ function wireTopButtons() {
   if (resourceManagerBtn) {
     resourceManagerBtn.onclick = () => {
       ResourceManager.openManager();
+    };
+  }
+
+  if (financialModeToggle) {
+    const updateLabel = () => {
+      const isSimple = window.financialMode === "simple";
+      financialModeToggle.textContent = isSimple
+        ? "💰 Detailed Financials"
+        : "💰 Simple Financials";
+    };
+
+    updateLabel();
+
+    financialModeToggle.onclick = () => {
+      window.financialMode = window.financialMode === "simple" ? "detailed" : "simple";
+      updateLabel();
+      renderWBS();
     };
   }
 }
@@ -1837,6 +2210,22 @@ function openRateOverrideModal(resource) {
     }
   });
 }
+
+// ---------------------- keyboard shortcuts ------------
+document.addEventListener("keydown", (e) => {
+  if (!selectedNodeId) return;
+  
+  // Ignore if typing in an input or textarea
+  if (e.target.tagName === "INPUT" || e.target.tagName === "TEXTAREA") return;
+  
+  if (e.key === "Delete") {
+    e.preventDefault();
+    deleteNode(selectedNodeId);
+  } else if (e.key === "Insert") {
+    e.preventDefault();
+    addChildById(selectedNodeId);
+  }
+});
 
 // ---------------------- expose / init ------------------
 window.renderWBS = renderWBS;

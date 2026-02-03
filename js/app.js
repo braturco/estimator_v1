@@ -1,5 +1,6 @@
 window.addEventListener("DOMContentLoaded", () => {
   console.log("✅ DOMContentLoaded fired");
+  document.body.classList.remove("debug-cells");
   
   // Apply saved theme before anything renders
   applyTheme(window.currentTheme || "dark");
@@ -17,11 +18,10 @@ window.addEventListener("DOMContentLoaded", () => {
   wireThemeToggle();
   renderWBS();
   
-  // Trigger initial calculations
-  if (window.Calculations && window.Calculations.calculateWBS) {
-    window.Calculations.calculateWBS().then(() => {
+  // Trigger initial calculations (this will update the rendered cells)
+  if (window.Calculations && window.Calculations.recalculate) {
+    window.Calculations.recalculate().then(() => {
       console.log("✅ Initial calculations complete");
-      renderWBS();
     }).catch(err => {
       console.error("❌ Initial calculation failed:", err);
     });
@@ -32,6 +32,19 @@ window.addEventListener("DOMContentLoaded", () => {
     console.log("✅ Calling setupSidebarToggle now");
     setupSidebarToggle();
   }, 0);
+
+  if (!document.body._expenseClickHandlerAttached) {
+    document.addEventListener("click", (e) => {
+      const cell = e.target.closest(".expense-cell");
+      if (!cell || !cell.dataset.expenseType) return;
+      const row = cell.closest(".wbs-row");
+      const nodeId = row?.dataset?.id;
+      if (nodeId && typeof window.openExpenseDetails === "function") {
+        window.openExpenseDetails(nodeId, cell.dataset.expenseType);
+      }
+    });
+    document.body._expenseClickHandlerAttached = true;
+  }
 });
 
 window.addEventListener("beforeunload", () => {
@@ -352,6 +365,14 @@ function openOHRatesSettings() {
         container._saveCallback();
       }
     }
+  });
+}
+
+// Export Oracle CSV button
+const exportOracleCSVBtn = document.getElementById("exportOracleCSVBtn");
+if (exportOracleCSVBtn) {
+  exportOracleCSVBtn.addEventListener("click", () => {
+    OracleExport.exportToFile();
   });
 }
 
