@@ -1634,9 +1634,11 @@ window.ResourceManager = (function () {
       heading.textContent = title;
       section.appendChild(heading);
 
+
       const table = document.createElement("div");
       table.style.display = "grid";
-      table.style.gridTemplateColumns = editable ? "2fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr auto" : "2fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr";
+      // Add Province column after Label
+      table.style.gridTemplateColumns = editable ? "2fr 0.8fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr auto" : "2fr 0.8fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr";
       table.style.gap = "4px";
       table.style.fontSize = "11px";
 
@@ -1646,7 +1648,7 @@ window.ResourceManager = (function () {
       headerRow.style.fontWeight = "600";
       headerRow.style.color = "var(--text-muted)";
 
-      const headers = ["Label", "Job Level", "Cost Reg", "Cost OT", "Sell Reg", "Sell OT"];
+      const headers = ["Label", "Province", "Job Level", "Cost Reg", "Cost OT", "Sell Reg", "Sell OT"];
       if (editable) headers.push("Actions");
 
       headers.forEach(h => {
@@ -1661,23 +1663,17 @@ window.ResourceManager = (function () {
 
       // Data rows
       for (const resource of resources) {
-        const jobLevel = await JobLevels.getLevelById(resource.jobLevel || resource.jobLevelId);
-        
-        const costReg = resource.costRegOverride !== null ? resource.costRegOverride : (jobLevel ? jobLevel.costRegular : "-");
-        const costOT = resource.costOTOverride !== null ? resource.costOTOverride : (jobLevel ? jobLevel.costOT : "-");
-        
-        // Get sell rates from job level using standard column (default)
-        let sellReg = "-";
-        let sellOT = "-";
-        if (resource.sellRegOverride !== null) {
-          sellReg = resource.sellRegOverride;
-          sellOT = resource.sellOTOverride;
-        } else if (jobLevel) {
-          const sellRates = JobLevels.getSellRates(jobLevel.id, "standard");
-          if (sellRates) {
-            sellReg = sellRates.regular;
-            sellOT = sellRates.ot;
-          }
+
+
+        // Use Province for rate mapping (default NB if not set)
+        const province = resource.province || resource.location || "NB";
+        // Pass province as location to Rates.resolveRates
+        const resourceWithProv = { ...resource, location: province };
+        let resolvedRates = { costRegular: '-', costOT: '-', sellRegular: '-', sellOT: '-' };
+        try {
+          resolvedRates = await Rates.resolveRates(resourceWithProv) || resolvedRates;
+        } catch (e) {
+          // fallback: leave as '-'
         }
 
         const label = document.createElement("div");
@@ -1685,33 +1681,44 @@ window.ResourceManager = (function () {
         label.style.padding = "6px";
         table.appendChild(label);
 
+        // Province cell
+        const provCell = document.createElement("div");
+        provCell.textContent = province;
+        provCell.style.padding = "6px";
+        provCell.style.textAlign = "center";
+        table.appendChild(provCell);
+
+        // Show job level label if available
+        let jobLevelLabel = resource.jobLevel || resource.jobLevelId || "-";
+        const jobLevel = await JobLevels.getLevelById(resource.jobLevel || resource.jobLevelId);
+        if (jobLevel && jobLevel.label) jobLevelLabel = jobLevel.label;
         const jl = document.createElement("div");
-        jl.textContent = jobLevel ? jobLevel.label : (resource.jobLevel || resource.jobLevelId || "-");
+        jl.textContent = jobLevelLabel;
         jl.style.padding = "6px";
         jl.style.fontSize = "10px";
         jl.style.color = "var(--text)";
         table.appendChild(jl);
 
         const cr = document.createElement("div");
-        cr.textContent = typeof costReg === "number" ? costReg.toFixed(2) : costReg;
+        cr.textContent = typeof resolvedRates.costRegular === "number" ? resolvedRates.costRegular.toFixed(2) : resolvedRates.costRegular;
         cr.style.padding = "6px";
         cr.style.textAlign = "right";
         table.appendChild(cr);
 
         const cot = document.createElement("div");
-        cot.textContent = typeof costOT === "number" ? costOT.toFixed(2) : costOT;
+        cot.textContent = typeof resolvedRates.costOT === "number" ? resolvedRates.costOT.toFixed(2) : resolvedRates.costOT;
         cot.style.padding = "6px";
         cot.style.textAlign = "right";
         table.appendChild(cot);
 
         const sr = document.createElement("div");
-        sr.textContent = typeof sellReg === "number" ? sellReg.toFixed(2) : sellReg;
+        sr.textContent = typeof resolvedRates.sellRegular === "number" ? resolvedRates.sellRegular.toFixed(2) : resolvedRates.sellRegular;
         sr.style.padding = "6px";
         sr.style.textAlign = "right";
         table.appendChild(sr);
 
         const sot = document.createElement("div");
-        sot.textContent = typeof sellOT === "number" ? sellOT.toFixed(2) : sellOT;
+        sot.textContent = typeof resolvedRates.sellOT === "number" ? resolvedRates.sellOT.toFixed(2) : resolvedRates.sellOT;
         sot.style.padding = "6px";
         sot.style.textAlign = "right";
         table.appendChild(sot);
