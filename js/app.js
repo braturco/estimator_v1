@@ -130,6 +130,8 @@ window.renderPalettes = function () {
 window.wireSetupButtons = function () {
   const rateBtn = document.getElementById("setupRateScheduleBtn");
   const resourcesBtn = document.getElementById("setupResourcesBtn");
+  const usagesBtn = document.getElementById("setupUsagesBtn");
+  const rateTablesBtn = document.getElementById("setupRateTablesBtn");
   const ohRatesBtn = document.getElementById("setupOHRatesBtn");
   const tagsBtn = document.getElementById("setupTagsBtn");
   const unitsBtn = document.getElementById("setupUnitsBtn");
@@ -150,6 +152,22 @@ window.wireSetupButtons = function () {
     };
   }
 
+  if (usagesBtn) {
+    usagesBtn.onclick = () => {
+      if (window.UsagesManager && typeof UsagesManager.openManager === "function") {
+        UsagesManager.openManager();
+      }
+    };
+  }
+
+  if (rateTablesBtn) {
+    rateTablesBtn.onclick = () => {
+      if (window.RateTablesManager && typeof RateTablesManager.openManager === "function") {
+        RateTablesManager.openManager();
+      }
+    };
+  }
+
   if (ohRatesBtn) {
     ohRatesBtn.onclick = () => {
       openOHRatesSettings();
@@ -165,6 +183,179 @@ window.wireSetupButtons = function () {
   if (unitsBtn) {
     unitsBtn.onclick = () => {
       alert("Unit Management is coming soon.");
+    };
+  }
+
+  const clearEstimateBtn = document.getElementById("clearEstimateBtn");
+  if (clearEstimateBtn) {
+    clearEstimateBtn.onclick = async () => {
+      const confirmed = confirm(
+        "⚠️ Clear Current Estimate?\n\n" +
+        "This will delete:\n" +
+        "• All WBS tasks and phases\n" +
+        "• All activities and hours\n" +
+        "• All expenses (Subs/ODC)\n" +
+        "• All tags and assignments\n\n" +
+        "Your imported resources, usages, and rate tables will NOT be deleted.\n\n" +
+        "A backup will be automatically created before clearing.\n\n" +
+        "The estimate will reset to a single 'Task 1' as a starting point.\n\n" +
+        "Are you sure?"
+      );
+      
+      if (confirmed) {
+        try {
+          // Create automatic backup first
+          console.log("📦 Creating backup before clearing estimate...");
+          if (typeof EstimateExport !== "undefined" && typeof EstimateExport.exportToZIP === "function") {
+            await EstimateExport.exportToZIP();
+            console.log("✅ Backup created successfully");
+          }
+        } catch (err) {
+          console.error("⚠️ Backup failed:", err);
+          const continueAnyway = confirm(
+            "Backup export failed. Continue with clearing anyway?\n\n" +
+            "Click OK to continue clearing (no backup).\n" +
+            "Click Cancel to abort."
+          );
+          if (!continueAnyway) return;
+        }
+        
+        // Reset to clean state with single Task 1
+        window.WBS_DATA = [
+          {
+            id: crypto.randomUUID(),
+            code: "1",
+            name: "Task 1",
+            grossRevenue: 0,
+            subcontractors: 0,
+            odc: 0,
+            directLabor: 0,
+            netRevenue: 0,
+            dlm: 0,
+            fringeBurden: 0,
+            pcm: 0,
+            pcmPct: 0,
+            ohBurden: 0,
+            burdenedLabor: 0,
+            totalCost: 0,
+            netMargin: 0,
+            nmPct: 0,
+            gmPct: 0,
+            children: []
+          }
+        ];
+        window.wbsPills = {};
+        window.collapsedNodes = new Set();
+        window.expandedLaborNodes = new Set();
+        window.laborActivities = {};
+        window.laborResources = []; // Clear all resource columns
+        
+        // Save the clean state
+        if (typeof saveAppState === "function") {
+          saveAppState();
+        }
+        
+        alert("Backup created. Estimate cleared. The page will now reload with a fresh Task 1.");
+        window.location.reload();
+      }
+    };
+  }
+
+  const clearAllBtn = document.getElementById("clearAllDataBtn");
+  if (clearAllBtn) {
+    clearAllBtn.onclick = async () => {
+      const confirmed = confirm(
+        "⚠️ WARNING: This will permanently delete EVERYTHING:\n\n" +
+        "• Your current estimate (WBS, hours, expenses)\n" +
+        "• All imported employees\n" +
+        "• All imported usages\n" +
+        "• All imported rate tables\n" +
+        "• All custom resources\n" +
+        "• All settings and preferences\n\n" +
+        "A backup will be automatically created before clearing.\n\n" +
+        "This action CANNOT be undone!\n\n" +
+        "Are you sure you want to continue?"
+      );
+      
+      if (confirmed) {
+        const doubleCheck = confirm(
+          "⚠️ FINAL WARNING\n\n" +
+          "All data will be permanently erased.\n\n" +
+          "A backup will be saved first.\n\n" +
+          "Click OK to DELETE EVERYTHING or Cancel to abort."
+        );
+        
+        if (doubleCheck) {
+          try {
+            // Create automatic backup first
+            console.log("📦 Creating backup before clearing all data...");
+            if (typeof EstimateExport !== "undefined" && typeof EstimateExport.exportToZIP === "function") {
+              await EstimateExport.exportToZIP();
+              console.log("✅ Backup created successfully");
+            }
+          } catch (err) {
+            console.error("⚠️ Backup failed:", err);
+            const continueAnyway = confirm(
+              "Backup export failed. Continue with clearing anyway?\n\n" +
+              "Click OK to continue clearing (no backup).\n" +
+              "Click Cancel to abort."
+            );
+            if (!continueAnyway) return;
+          }
+          
+          // Clear in-memory caches first
+          if (window.Rates && typeof Rates.clearCache === "function") {
+            Rates.clearCache();
+          }
+          localStorage.clear();
+          sessionStorage.clear();
+          // Clear service worker caches if any
+          if ('caches' in window) {
+            caches.keys().then(names => {
+              names.forEach(name => caches.delete(name));
+            });
+          }
+          
+          // Reset to clean state with single Task 1
+          window.WBS_DATA = [
+            {
+              id: crypto.randomUUID(),
+              code: "1",
+              name: "Task 1",
+              grossRevenue: 0,
+              subcontractors: 0,
+              odc: 0,
+              directLabor: 0,
+              netRevenue: 0,
+              dlm: 0,
+              fringeBurden: 0,
+              pcm: 0,
+              pcmPct: 0,
+              ohBurden: 0,
+              burdenedLabor: 0,
+              totalCost: 0,
+              netMargin: 0,
+              nmPct: 0,
+              gmPct: 0,
+              children: []
+            }
+          ];
+          window.wbsPills = {};
+          window.collapsedNodes = new Set();
+          window.expandedLaborNodes = new Set();
+          window.laborActivities = {};
+          window.laborResources = [];
+          
+          // Save the clean state
+          if (typeof saveAppState === "function") {
+            saveAppState();
+          }
+          
+          alert("Backup created. All data has been cleared. The page will now reload with a fresh Task 1.");
+          // Force hard reload with cache bypass
+          window.location.reload(true);
+        }
+      }
     };
   }
 
@@ -401,4 +592,94 @@ function wireThemeToggle() {
       window.saveAppState();
     }
   });
+}
+
+// Autobackup functionality
+let autobackupTimer = null;
+const autobackupCheckbox = document.getElementById("autobackupEnabled");
+const autobackupInterval = document.getElementById("autobackupInterval");
+
+// Load autobackup settings from localStorage
+const savedEnabled = localStorage.getItem("autobackup_enabled") === "true";
+const savedInterval = parseInt(localStorage.getItem("autobackup_interval")) || 15;
+
+if (autobackupCheckbox) {
+  autobackupCheckbox.checked = savedEnabled;
+}
+if (autobackupInterval) {
+  autobackupInterval.value = savedInterval;
+  autobackupInterval.disabled = !savedEnabled;
+}
+
+// Start autobackup timer if enabled
+function startAutobackup() {
+  if (autobackupTimer) {
+    clearInterval(autobackupTimer);
+    autobackupTimer = null;
+  }
+  
+  if (!autobackupCheckbox.checked) return;
+  
+  const intervalMinutes = parseInt(autobackupInterval.value) || 15;
+  const intervalMs = intervalMinutes * 60 * 1000;
+  
+  console.log(`⏰ Starting autobackup timer: every ${intervalMinutes} minutes`);
+  
+  autobackupTimer = setInterval(async () => {
+    console.log("💾 Autobackup triggered...");
+    try {
+      if (typeof EstimateExport !== "undefined" && typeof EstimateExport.exportToZIP === "function") {
+        await EstimateExport.exportToZIP(true); // Silent mode
+        console.log("✅ Autobackup completed");
+      }
+    } catch (err) {
+      console.error("❌ Autobackup failed:", err);
+    }
+  }, intervalMs);
+}
+
+if (autobackupCheckbox) {
+  autobackupCheckbox.addEventListener("change", () => {
+    const enabled = autobackupCheckbox.checked;
+    localStorage.setItem("autobackup_enabled", enabled);
+    
+    if (autobackupInterval) {
+      autobackupInterval.disabled = !enabled;
+    }
+    
+    if (enabled) {
+      startAutobackup();
+    } else {
+      if (autobackupTimer) {
+        clearInterval(autobackupTimer);
+        autobackupTimer = null;
+      }
+      console.log("⏰ Autobackup stopped");
+    }
+  });
+}
+
+if (autobackupInterval) {
+  autobackupInterval.addEventListener("input", () => {
+    // Ensure integer only
+    const val = autobackupInterval.value;
+    if (val && !Number.isInteger(parseFloat(val))) {
+      autobackupInterval.value = Math.floor(parseFloat(val) || 15);
+    }
+  });
+  
+  autobackupInterval.addEventListener("change", () => {
+    const intervalMinutes = parseInt(autobackupInterval.value) || 15;
+    localStorage.setItem("autobackup_interval", intervalMinutes);
+    
+    // Restart timer with new interval if enabled
+    if (autobackupCheckbox.checked) {
+      startAutobackup();
+    }
+  });
+}
+
+// Start autobackup on page load if enabled
+if (savedEnabled) {
+  startAutobackup();
 }

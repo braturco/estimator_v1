@@ -87,6 +87,119 @@ window.ResourceManager = (function () {
     }
   }
 
+  // Parse employee CSV with new column structure
+  function parseEmployeeCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) return [];
+
+    const headers = lines[0].split(',').map(h => h.trim());
+    const resources = [];
+
+    // Expected headers: EmployeeID, WorkEmail, LastName, FirstName, PreferredName, OrganizationalCode, NBL, SubMarketSegment, JobCode, NameWithEmail, Full Name
+    const employeeIdIdx = headers.findIndex(h => h.toLowerCase() === 'employeeid');
+    const emailIdx = headers.findIndex(h => h.toLowerCase() === 'workemail');
+    const lastNameIdx = headers.findIndex(h => h.toLowerCase() === 'lastname');
+    const firstNameIdx = headers.findIndex(h => h.toLowerCase() === 'firstname');
+    const preferredNameIdx = headers.findIndex(h => h.toLowerCase() === 'preferredname');
+    const orgCodeIdx = headers.findIndex(h => h.toLowerCase() === 'organizationalcode');
+    const nblIdx = headers.findIndex(h => h.toLowerCase() === 'nbl');
+    const subMarketIdx = headers.findIndex(h => h.toLowerCase() === 'submarketsegment');
+    const jobCodeIdx = headers.findIndex(h => h.toLowerCase() === 'jobcode');
+    const nameWithEmailIdx = headers.findIndex(h => h.toLowerCase() === 'namewithemail');
+    const fullNameIdx = headers.findIndex(h => h.toLowerCase() === 'full name');
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+
+      const employeeId = employeeIdIdx >= 0 ? cells[employeeIdIdx] : '';
+      const email = emailIdx >= 0 ? cells[emailIdx] : '';
+      const lastName = lastNameIdx >= 0 ? cells[lastNameIdx] : '';
+      const firstName = firstNameIdx >= 0 ? cells[firstNameIdx] : '';
+      const preferredName = preferredNameIdx >= 0 ? cells[preferredNameIdx] : '';
+      const orgCode = orgCodeIdx >= 0 ? cells[orgCodeIdx] : '';
+      const nbl = nblIdx >= 0 ? cells[nblIdx] : '';
+      const subMarket = subMarketIdx >= 0 ? cells[subMarketIdx] : '';
+      const jobCode = jobCodeIdx >= 0 ? cells[jobCodeIdx] : '';
+      const nameWithEmail = nameWithEmailIdx >= 0 ? cells[nameWithEmailIdx] : '';
+      const fullName = fullNameIdx >= 0 ? cells[fullNameIdx] : '';
+
+      if (!employeeId && !fullName) continue;
+
+      // Use preferred name if available, otherwise first name
+      const displayName = fullName || `${firstName} ${lastName}`.trim();
+
+      resources.push({
+        id: `employee-${employeeId || crypto.randomUUID()}`,
+        label: displayName,
+        employeeId,
+        email,
+        lastName,
+        firstName,
+        preferredName,
+        orgCode,
+        nbl,
+        subMarket,
+        jobCode,
+        nameWithEmail,
+        fullName,
+        type: "named",
+        // Default rates - will be calculated from job code lookup
+        cost: 60,
+        sell: 120,
+        otMultiplier: 1.5
+      });
+    }
+
+    return resources;
+  }
+
+  // Import from SharePoint URL
+  async function importFromSharePoint(url) {
+    try {
+      const response = await fetch(url);
+      if (!response.ok) {
+        throw new Error(`Failed to fetch: ${response.statusText}`);
+      }
+      const csvText = await response.text();
+      const resources = parseEmployeeCSV(csvText);
+      if (resources.length > 0) {
+        saveImportedNamedResources(resources);
+        return { success: true, count: resources.length };
+      }
+      return { success: false, error: "No valid resources found in CSV" };
+    } catch (err) {
+      return { success: false, error: err.message };
+    }
+  }
+
+  // Import from file upload
+  function importFromFile(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csvText = e.target.result;
+          const resources = parseEmployeeCSV(csvText);
+          if (resources.length > 0) {
+            saveImportedNamedResources(resources);
+            resolve({ success: true, count: resources.length });
+          } else {
+            resolve({ success: false, error: "No valid resources found in CSV" });
+          }
+        } catch (err) {
+          resolve({ success: false, error: err.message });
+        }
+      };
+      reader.onerror = () => {
+        resolve({ success: false, error: "Failed to read file" });
+      };
+      reader.readAsText(file);
+    });
+  }
+
   async function getAllResources() {
     const standardData = await Rates.listResources();
     const custom = getCustomResources();
@@ -126,6 +239,131 @@ window.ResourceManager = (function () {
       }
     };
     setTimeout(tryOpen, 0);
+  }
+
+  function showEmployeeImportDialog() {
+    Modal.open({
+      title: "Import Employee Resources",
+      content: (container) => {
+        container.innerHTML = "";
+        container.style.padding = "16px";
+        container.style.display = "flex";
+        container.style.flexDirection = "column";
+        container.style.gap = "20px";
+
+        // Instructions
+        const instructions = document.createElement("div");
+        instructions.style.fontSize = "12px";
+        instructions.style.color = "var(--text-muted)";
+        instructions.style.lineHeight = "1.6";
+        instructions.innerHTML = `
+          <strong>Expected CSV Columns:</strong><br>
+          EmployeeID, WorkEmail, LastName, FirstName, PreferredName, OrganizationalCode, 
+          NBL, SubMarketSegment, JobCode, NameWithEmail, Full Name
+        `;
+        container.appendChild(instructions);
+
+        // SharePoint URL section
+        const urlSection = document.createElement("div");
+        urlSection.style.display = "flex";
+        urlSection.style.flexDirection = "column";
+        urlSection.style.gap = "8px";
+
+        const urlLabel = document.createElement("label");
+        urlLabel.textContent = "SharePoint URL";
+        urlLabel.style.fontSize = "12px";
+        urlLabel.style.fontWeight = "600";
+
+        const urlInput = document.createElement("input");
+        urlInput.type = "text";
+        urlInput.placeholder = "https://sharepoint.com/path/to/employees.csv";
+        urlInput.style.padding = "8px";
+        urlInput.style.border = "1px solid var(--border)";
+        urlInput.style.borderRadius = "4px";
+        urlInput.style.background = "var(--bg)";
+        urlInput.style.color = "var(--text)";
+        urlInput.style.fontSize = "12px";
+
+        const urlBtn = document.createElement("button");
+        urlBtn.className = "btn btn-primary";
+        urlBtn.textContent = "Import from URL";
+        urlBtn.style.width = "fit-content";
+        urlBtn.addEventListener("click", async () => {
+          const url = urlInput.value.trim();
+          if (!url) {
+            alert("Please enter a SharePoint URL");
+            return;
+          }
+          urlBtn.disabled = true;
+          urlBtn.textContent = "Importing...";
+          const result = await importFromSharePoint(url);
+          if (result.success) {
+            alert(`Successfully imported ${result.count} employee resources`);
+            Modal.close();
+            renderManager(container.closest(".modal-body"));
+          } else {
+            alert(`Import failed: ${result.error}`);
+            urlBtn.disabled = false;
+            urlBtn.textContent = "Import from URL";
+          }
+        });
+
+        urlSection.appendChild(urlLabel);
+        urlSection.appendChild(urlInput);
+        urlSection.appendChild(urlBtn);
+        container.appendChild(urlSection);
+
+        // Divider
+        const divider = document.createElement("div");
+        divider.textContent = "OR";
+        divider.style.textAlign = "center";
+        divider.style.color = "var(--text-muted)";
+        divider.style.fontSize = "12px";
+        divider.style.fontWeight = "600";
+        container.appendChild(divider);
+
+        // File upload section
+        const fileSection = document.createElement("div");
+        fileSection.style.display = "flex";
+        fileSection.style.flexDirection = "column";
+        fileSection.style.gap = "8px";
+
+        const fileLabel = document.createElement("label");
+        fileLabel.textContent = "Upload CSV File";
+        fileLabel.style.fontSize = "12px";
+        fileLabel.style.fontWeight = "600";
+
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = ".csv";
+        fileInput.style.padding = "8px";
+        fileInput.style.border = "1px solid var(--border)";
+        fileInput.style.borderRadius = "4px";
+        fileInput.style.background = "var(--bg)";
+        fileInput.style.color = "var(--text)";
+        fileInput.style.fontSize = "12px";
+
+        fileInput.addEventListener("change", async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+          
+          const result = await importFromFile(file);
+          if (result.success) {
+            alert(`Successfully imported ${result.count} employee resources`);
+            Modal.close();
+            renderManager(container.closest(".modal-body"));
+          } else {
+            alert(`Import failed: ${result.error}`);
+          }
+        });
+
+        fileSection.appendChild(fileLabel);
+        fileSection.appendChild(fileInput);
+        container.appendChild(fileSection);
+      },
+      onSave: null,
+      onClose: () => Modal.close()
+    });
   }
 
   async function renderManager(container) {
@@ -236,7 +474,7 @@ window.ResourceManager = (function () {
 
           const tableMeta = document.createElement("div");
           tableMeta.style.display = "grid";
-          tableMeta.style.gridTemplateColumns = "1.5fr 1fr 1fr 1fr";
+          tableMeta.style.gridTemplateColumns = "1.5fr 1fr 1fr 110px";
           tableMeta.style.gap = "8px";
           tableMeta.style.marginTop = "8px";
 
@@ -264,18 +502,37 @@ window.ResourceManager = (function () {
           tableBLInput.style.background = "var(--bg)";
           tableBLInput.style.color = "var(--text)";
 
-          const tableProvInput = document.createElement("input");
-          tableProvInput.placeholder = "Default Prov";
-          tableProvInput.style.padding = "6px";
-          tableProvInput.style.border = "1px solid var(--border)";
-          tableProvInput.style.borderRadius = "4px";
-          tableProvInput.style.background = "var(--bg)";
-          tableProvInput.style.color = "var(--text)";
+          const tableProvSelect = document.createElement("select");
+          tableProvSelect.style.padding = "6px";
+          tableProvSelect.style.border = "1px solid var(--border)";
+          tableProvSelect.style.borderRadius = "4px";
+          tableProvSelect.style.background = "var(--bg)";
+          tableProvSelect.style.color = "var(--text)";
+          tableProvSelect.style.fontSize = "12px";
+
+          // Add blank option
+          const blankProvOpt = document.createElement("option");
+          blankProvOpt.value = "";
+          blankProvOpt.textContent = "Province";
+          blankProvOpt.disabled = true;
+          blankProvOpt.selected = true;
+          tableProvSelect.appendChild(blankProvOpt);
+
+          // Add province options
+          if (window.ProvinceMapping && typeof window.ProvinceMapping.getProvinceOptions === "function") {
+            const provinceOptions = window.ProvinceMapping.getProvinceOptions();
+            provinceOptions.forEach(opt => {
+              const option = document.createElement("option");
+              option.value = opt.display;
+              option.textContent = opt.display;
+              tableProvSelect.appendChild(option);
+            });
+          }
 
           tableMeta.appendChild(tableLabelInput);
           tableMeta.appendChild(tableDescInput);
           tableMeta.appendChild(tableBLInput);
-          tableMeta.appendChild(tableProvInput);
+          tableMeta.appendChild(tableProvSelect);
 
           // Wrap table grid in a scrollable container
           const tableGridWrapper = document.createElement("div");
@@ -298,7 +555,7 @@ window.ResourceManager = (function () {
               tableLabelInput.value = table.label || "";
               tableDescInput.value = table.description || "";
               tableBLInput.value = table.defaultBL || "";
-              tableProvInput.value = table.defaultProv || "";
+              tableProvSelect.value = table.defaultProv || "";
 
               // Also sync the dropdown to match
               const option = Array.from(tableSelect.options).find(opt => opt.value === selectedTableId);
@@ -555,6 +812,9 @@ window.ResourceManager = (function () {
                 renderTableEditor(currentTable);
               });
 
+              // Get the rate entry for this code
+              const rateEntry = table.rates[rateCode] || {};
+
               // Job level code cell
               const nameCell = document.createElement("div");
               nameCell.style.padding = "6px";
@@ -572,9 +832,6 @@ window.ResourceManager = (function () {
               nameCell.textContent = displayText;
               nameCell.title = displayText;
               row.appendChild(nameCell);
-
-              // Get the rate entry for this code
-              const rateEntry = table.rates[rateCode] || {};
 
               // Cost Reg input
               const costRegInput = document.createElement("input");
@@ -696,9 +953,7 @@ window.ResourceManager = (function () {
                     ot: parseFloat(otVal.value) || 0
                   };
                 });
-                if (table.type === "custom") {
-                  RateTables.updateTableRates(table.id, rateCode, updated);
-                }
+                RateTables.updateTableRates(table.id, rateCode, updated);
               };
 
               [costRegInput, costOTInput].forEach(input => {
@@ -833,9 +1088,77 @@ window.ResourceManager = (function () {
               label: tableLabelInput.value.trim(),
               description: tableDescInput.value.trim(),
               defaultBL: tableBLInput.value.trim(),
-              defaultProv: tableProvInput.value.trim()
+              defaultProv: tableProvSelect.value
             });
           }
+
+          // Province change handler - auto-populate ALL cost rates
+          tableProvSelect.addEventListener("change", async () => {
+            const selectedProvince = tableProvSelect.value;
+            await updateTableMeta();
+            
+            if (!selectedProvince) {
+              // No province - clear all cost rates
+              const allInputs = tableGridWrapper.querySelectorAll('input[data-type="costReg"], input[data-type="costOT"]');
+              allInputs.forEach(input => {
+                input.value = "";
+                const rateCode = input.dataset.rateCode;
+                const table = currentTable;
+                if (table && table.rates[rateCode]) {
+                  table.rates[rateCode].cost = { reg: 0, ot: 0 };
+                  RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
+                }
+              });
+              return;
+            }
+
+            // Auto-lookup cost rates for ALL job levels
+            if (window.ProvinceMapping && typeof window.ProvinceMapping.lookupCostRate === "function") {
+              const costRegInputs = tableGridWrapper.querySelectorAll('input[data-type="costReg"]');
+              for (const costRegInput of costRegInputs) {
+                const rateCode = costRegInput.dataset.rateCode;
+                const costOTInput = tableGridWrapper.querySelector(`input[data-rate-code="${rateCode}"][data-type="costOT"]`);
+                
+                // Clear first
+                costRegInput.value = "";
+                costOTInput.value = "";
+                
+                // Lookup rates
+                const rates = await window.ProvinceMapping.lookupCostRate(selectedProvince, rateCode);
+                if (rates) {
+                  // Match found - populate and save
+                  costRegInput.value = rates.costRegular.toString();
+                  costOTInput.value = rates.costOT.toString();
+                  costRegInput.style.background = "rgba(96, 250, 165, 0.25)";
+                  costOTInput.style.background = "rgba(96, 250, 165, 0.25)";
+                  
+                  const table = currentTable;
+                  if (table && table.rates[rateCode]) {
+                    table.rates[rateCode].cost = {
+                      reg: rates.costRegular,
+                      ot: rates.costOT
+                    };
+                    RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
+                  }
+                } else {
+                  // No match - clear stored values
+                  const table = currentTable;
+                  if (table && table.rates[rateCode]) {
+                    table.rates[rateCode].cost = { reg: 0, ot: 0 };
+                    RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
+                  }
+                }
+              }
+              
+              // Clear green highlights after 2 seconds
+              setTimeout(() => {
+                const allCostInputs = tableGridWrapper.querySelectorAll('input[data-type="costReg"], input[data-type="costOT"]');
+                allCostInputs.forEach(input => {
+                  input.style.background = "rgba(96, 165, 250, 0.18)";
+                });
+              }, 2000);
+            }
+          });
 
           function syncTableSelectLabel() {
             const option = Array.from(tableSelect.options).find(opt => opt.value === selectedTableId);
@@ -854,7 +1177,6 @@ window.ResourceManager = (function () {
           });
           tableDescInput.addEventListener("blur", updateTableMeta);
           tableBLInput.addEventListener("blur", updateTableMeta);
-          tableProvInput.addEventListener("blur", updateTableMeta);
 
           tableSelect.addEventListener("change", () => {
             selectedTableId = tableSelect.value;
@@ -888,8 +1210,12 @@ window.ResourceManager = (function () {
           formContainer.appendChild(tablesSection);
           }); // End of RateTables.getAllTables().then()
         },
-        onSave: () => {
+        onSave: async () => {
           Modal.close();
+          // Reload the latest tables from storage to ensure persistence
+          if (typeof RateTables !== 'undefined' && typeof RateTables.getAllTables === 'function') {
+            await RateTables.getAllTables();
+          }
           renderManager(container);
         }
       });
@@ -903,8 +1229,126 @@ window.ResourceManager = (function () {
       showRateScheduleDialog();
     });
 
+    const importEmployeesBtn = document.createElement("button");
+    importEmployeesBtn.className = "btn btn-secondary";
+    importEmployeesBtn.textContent = "📥 Import Employees";
+    importEmployeesBtn.addEventListener("click", () => {
+      showEmployeeImportDialog();
+    });
+
     toolbar.appendChild(rateScheduleBtn);
+    toolbar.appendChild(importEmployeesBtn);
     container.appendChild(toolbar);
+
+    // Display imported employees section
+    const importedEmployees = getImportedNamedResources();
+    if (importedEmployees.length > 0) {
+      const employeeSection = document.createElement("div");
+      employeeSection.style.display = "flex";
+      employeeSection.style.flexDirection = "column";
+      employeeSection.style.gap = "12px";
+      employeeSection.style.padding = "12px 0";
+      employeeSection.style.borderBottom = "1px solid var(--border)";
+
+      const sectionHeader = document.createElement("div");
+      sectionHeader.style.display = "flex";
+      sectionHeader.style.justifyContent = "space-between";
+      sectionHeader.style.alignItems = "center";
+
+      const sectionTitle = document.createElement("div");
+      sectionTitle.textContent = `Imported Employees (${importedEmployees.length})`;
+      sectionTitle.style.fontSize = "14px";
+      sectionTitle.style.fontWeight = "600";
+
+      const clearBtn = document.createElement("button");
+      clearBtn.className = "btn btn-secondary";
+      clearBtn.textContent = "Clear All";
+      clearBtn.style.fontSize = "11px";
+      clearBtn.style.padding = "4px 8px";
+      clearBtn.addEventListener("click", () => {
+        if (confirm(`Clear all ${importedEmployees.length} imported employees?`)) {
+          saveImportedNamedResources([]);
+          renderManager(container);
+        }
+      });
+
+      sectionHeader.appendChild(sectionTitle);
+      sectionHeader.appendChild(clearBtn);
+      employeeSection.appendChild(sectionHeader);
+
+      // Table container with scroll
+      const tableContainer = document.createElement("div");
+      tableContainer.style.maxHeight = "300px";
+      tableContainer.style.overflowY = "auto";
+      tableContainer.style.border = "1px solid var(--border)";
+      tableContainer.style.borderRadius = "4px";
+
+      // Table
+      const table = document.createElement("table");
+      table.style.width = "100%";
+      table.style.borderCollapse = "collapse";
+      table.style.fontSize = "11px";
+
+      // Header row
+      const thead = document.createElement("thead");
+      thead.style.position = "sticky";
+      thead.style.top = "0";
+      thead.style.background = "var(--bg-panel)";
+      thead.style.zIndex = "1";
+      
+      const headerRow = document.createElement("tr");
+      const headers = ["Employee ID", "Full Name", "Work Email", "Job Code", "Org Code", "NBL", "Sub Market"];
+      headers.forEach(headerText => {
+        const th = document.createElement("th");
+        th.textContent = headerText;
+        th.style.padding = "8px 6px";
+        th.style.textAlign = "left";
+        th.style.borderBottom = "1px solid var(--border)";
+        th.style.fontWeight = "600";
+        th.style.color = "var(--text-muted)";
+        th.style.whiteSpace = "nowrap";
+        headerRow.appendChild(th);
+      });
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Body rows
+      const tbody = document.createElement("tbody");
+      importedEmployees.forEach((emp, idx) => {
+        const row = document.createElement("tr");
+        row.style.borderBottom = "1px solid var(--border-muted)";
+        if (idx % 2 === 1) {
+          row.style.background = "var(--bg-hover)";
+        }
+
+        const cells = [
+          emp.employeeId || "",
+          emp.fullName || emp.label || "",
+          emp.email || "",
+          emp.jobCode || "",
+          emp.orgCode || "",
+          emp.nbl || "",
+          emp.subMarket || ""
+        ];
+
+        cells.forEach(cellText => {
+          const td = document.createElement("td");
+          td.textContent = cellText;
+          td.style.padding = "6px";
+          td.style.whiteSpace = "nowrap";
+          td.style.overflow = "hidden";
+          td.style.textOverflow = "ellipsis";
+          td.style.maxWidth = "150px";
+          row.appendChild(td);
+        });
+
+        tbody.appendChild(row);
+      });
+      table.appendChild(tbody);
+      tableContainer.appendChild(table);
+      employeeSection.appendChild(tableContainer);
+      container.appendChild(employeeSection);
+    }
 
     function buildSellRatesInputs(columns, existingSellRates) {
       const wrapper = document.createElement("div");

@@ -5,19 +5,26 @@ window.EstimateExport = (function () {
   // Gather all data for export
   function gatherExportData() {
     return {
-      version: "1.0",
+      version: "2.0",
       exportDate: new Date().toISOString(),
       wbsData: window.WBS_DATA || [],
       wbsPills: window.wbsPills || {},
-      laborMode: window.laborMode || false,
       laborResources: window.laborResources || [],
       laborActivities: window.laborActivities || {},
       collapsedNodes: Array.from(window.collapsedNodes || []),
       expandedLaborNodes: Array.from(window.expandedLaborNodes || []),
+      expandedPricingMethods: window.expandedPricingMethods || {},
+      ohRates: window.ohRates || {},
+      currentTheme: window.currentTheme || "dark",
+      financialMode: window.financialMode || "detailed",
+      showResourceRates: window.showResourceRates || false,
       rateTables: RateTables.getAllTables(),
       jobLevels: JobLevels.getAllLevels(),
       rateColumns: RateColumns.getAllColumns(),
-      customResources: ResourceManager ? ResourceManager.getCustomResources() : []
+      customResources: ResourceManager ? ResourceManager.getCustomResources() : [],
+      importedNamedResources: ResourceManager ? ResourceManager.getImportedNamedResources() : [],
+      importedUsages: localStorage.getItem("estimator_imported_usages_v1") ? JSON.parse(localStorage.getItem("estimator_imported_usages_v1")) : [],
+      importedRateTables: localStorage.getItem("estimator_imported_rate_tables_v1") ? JSON.parse(localStorage.getItem("estimator_imported_rate_tables_v1")) : []
     };
   }
 
@@ -36,12 +43,12 @@ window.EstimateExport = (function () {
   }
 
   // Export to ZIP file (recommended - includes all data files)
-  async function exportToZIP() {
-    console.log("🔄 exportToZIP() called");
+  async function exportToZIP(silent = false) {
+    if (!silent) console.log("🔄 exportToZIP() called");
     
     if (typeof JSZip === "undefined") {
       console.error("❌ JSZip not loaded");
-      alert("JSZip library not loaded. Using JSON export instead.");
+      if (!silent) alert("JSZip library not loaded. Using JSON export instead.");
       exportToJSON();
       return;
     }
@@ -50,7 +57,7 @@ window.EstimateExport = (function () {
       const zip = new JSZip();
       const data = gatherExportData();
       
-      console.log("📦 Gathering data...", data);
+      if (!silent) console.log("📦 Gathering data...", data);
       
       // Main estimate data
       zip.file("estimate.json", JSON.stringify({
@@ -58,11 +65,15 @@ window.EstimateExport = (function () {
         exportDate: data.exportDate,
         wbsData: data.wbsData,
         wbsPills: data.wbsPills,
-        laborMode: data.laborMode,
         laborResources: data.laborResources,
         laborActivities: data.laborActivities,
         collapsedNodes: data.collapsedNodes,
-        expandedLaborNodes: data.expandedLaborNodes
+        expandedLaborNodes: data.expandedLaborNodes,
+        expandedPricingMethods: data.expandedPricingMethods,
+        ohRates: data.ohRates,
+        currentTheme: data.currentTheme,
+        financialMode: data.financialMode,
+        showResourceRates: data.showResourceRates
       }, null, 2));
       
       // Rate tables
@@ -77,17 +88,26 @@ window.EstimateExport = (function () {
       // Resources
       zip.file("resources.json", JSON.stringify({ resources: data.customResources }, null, 2));
       
-      console.log("✅ Files added to ZIP, generating blob...");
+      // Imported named resources (employees)
+      zip.file("imported-resources.json", JSON.stringify({ resources: data.importedNamedResources }, null, 2));
+      
+      // Imported usages
+      zip.file("imported-usages.json", JSON.stringify({ usages: data.importedUsages }, null, 2));
+      
+      // Imported rate tables
+      zip.file("imported-rate-tables.json", JSON.stringify({ rateTables: data.importedRateTables }, null, 2));
+      
+      if (!silent) console.log("✅ Files added to ZIP, generating blob...");
       
       // Generate and download
       const blob = await zip.generateAsync({ type: "blob" });
-      console.log("✅ Blob generated, size:", blob.size, "bytes");
+      if (!silent) console.log("✅ Blob generated, size:", blob.size, "bytes");
       
       const url = URL.createObjectURL(blob);
-      console.log("✅ Object URL created:", url);
+      if (!silent) console.log("✅ Object URL created:", url);
       
       const filename = `estimate-${new Date().toISOString().split('T')[0]}.zip`;
-      console.log("📥 Triggering download:", filename);
+      if (!silent) console.log("📥 Triggering download:", filename);
       
       const a = document.createElement("a");
       a.href = url;
@@ -99,11 +119,13 @@ window.EstimateExport = (function () {
       // Keep URL alive briefly in case browser is slow
       setTimeout(() => URL.revokeObjectURL(url), 100);
       
-      console.log("✅ Download triggered successfully");
-      alert(`✅ Estimate exported to ${filename}`);
+      if (!silent) {
+        console.log("✅ Download triggered successfully");
+        alert(`✅ Estimate exported to ${filename}`);
+      }
     } catch (err) {
       console.error("❌ Export failed:", err);
-      alert(`Export failed: ${err.message}`);
+      if (!silent) alert(`Export failed: ${err.message}`);
     }
   }
 
@@ -169,6 +191,27 @@ window.EstimateExport = (function () {
       data.customResources = resources.resources;
     }
     
+    // Load imported named resources
+    if (zip.files["imported-resources.json"]) {
+      const content = await zip.files["imported-resources.json"].async("text");
+      const importedResources = JSON.parse(content);
+      data.importedNamedResources = importedResources.resources;
+    }
+    
+    // Load imported usages
+    if (zip.files["imported-usages.json"]) {
+      const content = await zip.files["imported-usages.json"].async("text");
+      const importedUsages = JSON.parse(content);
+      data.importedUsages = importedUsages.usages;
+    }
+    
+    // Load imported rate tables
+    if (zip.files["imported-rate-tables.json"]) {
+      const content = await zip.files["imported-rate-tables.json"].async("text");
+      const importedRateTables = JSON.parse(content);
+      data.importedRateTables = importedRateTables.rateTables;
+    }
+    
     applyImportData(data);
     return true;
   }
@@ -180,11 +223,26 @@ window.EstimateExport = (function () {
     // Restore WBS data
     if (data.wbsData) window.WBS_DATA = data.wbsData;
     if (data.wbsPills) window.wbsPills = data.wbsPills;
-    if (typeof data.laborMode === "boolean") window.laborMode = data.laborMode;
     if (data.laborResources) window.laborResources = data.laborResources;
     if (data.laborActivities) window.laborActivities = data.laborActivities;
     if (data.collapsedNodes) window.collapsedNodes = new Set(data.collapsedNodes);
     if (data.expandedLaborNodes) window.expandedLaborNodes = new Set(data.expandedLaborNodes);
+    if (data.expandedPricingMethods) window.expandedPricingMethods = data.expandedPricingMethods;
+    if (data.ohRates) window.ohRates = data.ohRates;
+    if (data.currentTheme) window.currentTheme = data.currentTheme;
+    if (data.financialMode) window.financialMode = data.financialMode;
+    if (typeof data.showResourceRates === "boolean") window.showResourceRates = data.showResourceRates;
+    
+    // Restore imported data
+    if (data.importedNamedResources && ResourceManager) {
+      ResourceManager.saveImportedNamedResources(data.importedNamedResources);
+    }
+    if (data.importedUsages) {
+      localStorage.setItem("estimator_imported_usages_v1", JSON.stringify(data.importedUsages));
+    }
+    if (data.importedRateTables) {
+      localStorage.setItem("estimator_imported_rate_tables_v1", JSON.stringify(data.importedRateTables));
+    }
     
     // Restore rate tables
     if (data.rateTables && Array.isArray(data.rateTables)) {

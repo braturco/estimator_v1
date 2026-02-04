@@ -1,46 +1,42 @@
-// Usages Manager - Import and manage non-labor resource usages
+// Rate Tables Manager - Import and manage labor cost rate tables
 
-window.UsagesManager = (function () {
-  const IMPORTED_USAGES_KEY = "estimator_imported_usages_v1";
+window.RateTablesManager = (function () {
+  const IMPORTED_RATE_TABLES_KEY = "estimator_imported_rate_tables_v1";
 
-  function getImportedUsages() {
+  function getImportedRateTables() {
     try {
-      const raw = localStorage.getItem(IMPORTED_USAGES_KEY);
+      const raw = localStorage.getItem(IMPORTED_RATE_TABLES_KEY);
       return raw ? JSON.parse(raw) : [];
     } catch (e) {
-      console.warn("Failed to load imported usages", e);
+      console.warn("Failed to load imported rate tables", e);
       return [];
     }
   }
 
-  function saveImportedUsages(usages) {
+  function saveImportedRateTables(rateTables) {
     try {
-      localStorage.setItem(IMPORTED_USAGES_KEY, JSON.stringify(usages));
+      localStorage.setItem(IMPORTED_RATE_TABLES_KEY, JSON.stringify(rateTables));
       return true;
     } catch (e) {
-      console.warn("Failed to save imported usages", e);
+      console.warn("Failed to save imported rate tables", e);
       return false;
     }
   }
 
-  // Parse usage CSV
-  function parseUsageCSV(csvText) {
+  // Parse rate table CSV
+  function parseRateTableCSV(csvText) {
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) return [];
 
     const headers = lines[0].split(',').map(h => h.trim());
-    const usages = [];
+    const rateTables = [];
 
-    // Expected headers: From Date, To Date, Expenditure Type, NonLabour Resource, NonLabour Resource Organization, Rate Requirement, Unit of Measure, Rate, Markup Percent
-    const fromDateIdx = headers.findIndex(h => h.toLowerCase() === 'from date');
-    const toDateIdx = headers.findIndex(h => h.toLowerCase() === 'to date');
-    const expTypeIdx = headers.findIndex(h => h.toLowerCase() === 'expenditure type');
-    const resourceIdx = headers.findIndex(h => h.toLowerCase() === 'nonlabour resource');
-    const orgIdx = headers.findIndex(h => h.toLowerCase() === 'nonlabour resource organization');
-    const rateReqIdx = headers.findIndex(h => h.toLowerCase() === 'rate requirement');
-    const uomIdx = headers.findIndex(h => h.toLowerCase() === 'unit of measure');
-    const rateIdx = headers.findIndex(h => h.toLowerCase() === 'rate');
-    const markupIdx = headers.findIndex(h => h.toLowerCase() === 'markup percent');
+    // Expected headers: PROVINCE, JOB CODE, JOB LEVEL, UNIQUE IDENTIFIER, COST RATE
+    const provinceIdx = headers.findIndex(h => h.toLowerCase() === 'province');
+    const jobCodeIdx = headers.findIndex(h => h.toLowerCase() === 'job code');
+    const jobLevelIdx = headers.findIndex(h => h.toLowerCase() === 'job level');
+    const identifierIdx = headers.findIndex(h => h.toLowerCase() === 'unique identifier');
+    const costRateIdx = headers.findIndex(h => h.toLowerCase() === 'cost rate');
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -48,68 +44,60 @@ window.UsagesManager = (function () {
 
       const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
 
-      const fromDate = fromDateIdx >= 0 ? cells[fromDateIdx] : '';
-      const toDate = toDateIdx >= 0 ? cells[toDateIdx] : '';
-      const expType = expTypeIdx >= 0 ? cells[expTypeIdx] : '';
-      const resource = resourceIdx >= 0 ? cells[resourceIdx] : '';
-      const org = orgIdx >= 0 ? cells[orgIdx] : '';
-      const rateReq = rateReqIdx >= 0 ? cells[rateReqIdx] : '';
-      const uom = uomIdx >= 0 ? cells[uomIdx] : '';
-      const rate = rateIdx >= 0 ? parseFloat(cells[rateIdx]) || 0 : 0;
-      const markup = markupIdx >= 0 ? parseFloat(cells[markupIdx]) || 0 : 0;
+      const province = provinceIdx >= 0 ? cells[provinceIdx] : '';
+      const jobCode = jobCodeIdx >= 0 ? cells[jobCodeIdx] : '';
+      const jobLevel = jobLevelIdx >= 0 ? cells[jobLevelIdx] : '';
+      const identifier = identifierIdx >= 0 ? cells[identifierIdx] : '';
+      const costRate = costRateIdx >= 0 ? parseFloat(cells[costRateIdx]) || 0 : 0;
 
-      if (!resource) continue;
+      if (!identifier && !jobCode) continue;
 
-      usages.push({
-        id: `usage-${crypto.randomUUID()}`,
-        fromDate,
-        toDate,
-        expenditureType: expType,
-        resource,
-        organization: org,
-        rateRequirement: rateReq,
-        unitOfMeasure: uom,
-        rate,
-        markupPercent: markup,
-        type: "usage"
+      rateTables.push({
+        id: `rate-${crypto.randomUUID()}`,
+        province,
+        jobCode,
+        jobLevel,
+        uniqueIdentifier: identifier,
+        costRate,
+        type: "rateTable"
       });
     }
 
-    return usages;
+    return rateTables;
   }
 
-  // Import usages from SharePoint URL
-  async function importUsagesFromSharePoint(url) {
+  // Import rate tables from SharePoint URL
+  async function importRateTablesFromSharePoint(url) {
     try {
       const response = await fetch(url);
       if (!response.ok) {
         throw new Error(`Failed to fetch: ${response.statusText}`);
       }
       const csvText = await response.text();
-      const usages = parseUsageCSV(csvText);
-      if (usages.length > 0) {
-        saveImportedUsages(usages);
-        return { success: true, count: usages.length };
+      const rateTables = parseRateTableCSV(csvText);
+      if (rateTables.length > 0) {
+        saveImportedRateTables(rateTables);
+        return { success: true, count: rateTables.length };
       }
-      return { success: false, error: "No valid usages found in CSV" };
+      return { success: false, error: "No valid rate tables found in CSV" };
     } catch (err) {
       return { success: false, error: err.message };
     }
   }
 
-  // Import usages from file
-  function importUsagesFromFile(file) {
+  // Import rate tables from file
+  function importRateTablesFromFile(file) {
     return new Promise((resolve) => {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const csvText = e.target.result;
-          const usages = parseUsageCSV(csvText);
-          if (usages.length > 0) {
-            saveImportedUsages(usages);
-            resolve({ success: true, count: usages.length });
+          const rateTables = parseRateTableCSV(csvText);
+          if (rateTables.length > 0) {
+            saveImportedRateTables(rateTables);
+            resolve({ success: true, count: rateTables.length });
           } else {
-            resolve({ success: false, error: "No valid usages found in CSV" });
+            resolve({ success: false, error: "No valid rate tables found in CSV" });
           }
         } catch (err) {
           resolve({ success: false, error: err.message });
@@ -124,7 +112,7 @@ window.UsagesManager = (function () {
 
   function showImportDialog() {
     Modal.open({
-      title: "Import Non-Labor Usages",
+      title: "Import Labor Cost Rate Tables",
       content: (container) => {
         container.innerHTML = "";
         container.style.padding = "16px";
@@ -139,8 +127,7 @@ window.UsagesManager = (function () {
         instructions.style.lineHeight = "1.6";
         instructions.innerHTML = `
           <strong>Expected CSV Columns:</strong><br>
-          From Date, To Date, Expenditure Type, NonLabour Resource, NonLabour Resource Organization,
-          Rate Requirement, Unit of Measure, Rate, Markup Percent
+          PROVINCE, JOB CODE, JOB LEVEL, UNIQUE IDENTIFIER, COST RATE
         `;
         container.appendChild(instructions);
 
@@ -157,7 +144,7 @@ window.UsagesManager = (function () {
 
         const urlInput = document.createElement("input");
         urlInput.type = "text";
-        urlInput.placeholder = "https://sharepoint.com/path/to/usages.csv";
+        urlInput.placeholder = "https://sharepoint.com/path/to/rate-tables.csv";
         urlInput.style.padding = "8px";
         urlInput.style.border = "1px solid var(--border)";
         urlInput.style.borderRadius = "4px";
@@ -177,9 +164,9 @@ window.UsagesManager = (function () {
           }
           urlBtn.disabled = true;
           urlBtn.textContent = "Importing...";
-          const result = await importUsagesFromSharePoint(url);
+          const result = await importRateTablesFromSharePoint(url);
           if (result.success) {
-            alert(`Successfully imported ${result.count} usage records`);
+            alert(`Successfully imported ${result.count} rate table records`);
             Modal.close();
             openManager();
           } else {
@@ -228,9 +215,9 @@ window.UsagesManager = (function () {
           const file = e.target.files[0];
           if (!file) return;
           
-          const result = await importUsagesFromFile(file);
+          const result = await importRateTablesFromFile(file);
           if (result.success) {
-            alert(`Successfully imported ${result.count} usage records`);
+            alert(`Successfully imported ${result.count} rate table records`);
             Modal.close();
             openManager();
           } else {
@@ -262,7 +249,7 @@ window.UsagesManager = (function () {
 
     const importBtn = document.createElement("button");
     importBtn.className = "btn btn-primary";
-    importBtn.textContent = "📦 Import Usages";
+    importBtn.textContent = "📊 Import Rate Tables";
     importBtn.addEventListener("click", () => {
       showImportDialog();
     });
@@ -270,15 +257,15 @@ window.UsagesManager = (function () {
     toolbar.appendChild(importBtn);
     container.appendChild(toolbar);
 
-    // Display imported usages
-    const importedUsages = getImportedUsages();
-    if (importedUsages.length > 0) {
-      const usageSection = document.createElement("div");
-      usageSection.style.display = "flex";
-      usageSection.style.flexDirection = "column";
-      usageSection.style.gap = "12px";
-      usageSection.style.padding = "12px 0";
-      usageSection.style.borderBottom = "1px solid var(--border)";
+    // Display imported rate tables
+    const importedRateTables = getImportedRateTables();
+    if (importedRateTables.length > 0) {
+      const rateSection = document.createElement("div");
+      rateSection.style.display = "flex";
+      rateSection.style.flexDirection = "column";
+      rateSection.style.gap = "12px";
+      rateSection.style.padding = "12px 0";
+      rateSection.style.borderBottom = "1px solid var(--border)";
 
       const sectionHeader = document.createElement("div");
       sectionHeader.style.display = "flex";
@@ -286,7 +273,7 @@ window.UsagesManager = (function () {
       sectionHeader.style.alignItems = "center";
 
       const sectionTitle = document.createElement("div");
-      sectionTitle.textContent = `Imported Usages (${importedUsages.length})`;
+      sectionTitle.textContent = `Imported Rate Tables (${importedRateTables.length})`;
       sectionTitle.style.fontSize = "14px";
       sectionTitle.style.fontWeight = "600";
 
@@ -296,15 +283,15 @@ window.UsagesManager = (function () {
       clearBtn.style.fontSize = "11px";
       clearBtn.style.padding = "4px 8px";
       clearBtn.addEventListener("click", () => {
-        if (confirm(`Clear all ${importedUsages.length} imported usages?`)) {
-          saveImportedUsages([]);
+        if (confirm(`Clear all ${importedRateTables.length} imported rate table records?`)) {
+          saveImportedRateTables([]);
           renderManager(container);
         }
       });
 
       sectionHeader.appendChild(sectionTitle);
       sectionHeader.appendChild(clearBtn);
-      usageSection.appendChild(sectionHeader);
+      rateSection.appendChild(sectionHeader);
 
       // Table container with scroll
       const tableContainer = document.createElement("div");
@@ -327,7 +314,7 @@ window.UsagesManager = (function () {
       thead.style.zIndex = "1";
       
       const headerRow = document.createElement("tr");
-      const headers = ["Resource", "Organization", "Exp. Type", "UOM", "Rate", "Markup %", "From Date", "To Date"];
+      const headers = ["Province", "Job Code", "Job Level", "Unique Identifier", "Cost Rate"];
       headers.forEach(headerText => {
         const th = document.createElement("th");
         th.textContent = headerText;
@@ -344,7 +331,7 @@ window.UsagesManager = (function () {
 
       // Body rows
       const tbody = document.createElement("tbody");
-      importedUsages.forEach((usage, idx) => {
+      importedRateTables.forEach((rate, idx) => {
         const row = document.createElement("tr");
         row.style.borderBottom = "1px solid var(--border-muted)";
         if (idx % 2 === 1) {
@@ -352,14 +339,11 @@ window.UsagesManager = (function () {
         }
 
         const cells = [
-          usage.resource || "",
-          usage.organization || "",
-          usage.expenditureType || "",
-          usage.unitOfMeasure || "",
-          usage.rate ? `$${usage.rate.toFixed(2)}` : "",
-          usage.markupPercent ? `${usage.markupPercent}%` : "",
-          usage.fromDate || "",
-          usage.toDate || ""
+          rate.province || "",
+          rate.jobCode || "",
+          rate.jobLevel || "",
+          rate.uniqueIdentifier || "",
+          rate.costRate ? `$${rate.costRate.toFixed(2)}` : ""
         ];
 
         cells.forEach(cellText => {
@@ -377,8 +361,8 @@ window.UsagesManager = (function () {
       });
       table.appendChild(tbody);
       tableContainer.appendChild(table);
-      usageSection.appendChild(tableContainer);
-      container.appendChild(usageSection);
+      rateSection.appendChild(tableContainer);
+      container.appendChild(rateSection);
     } else {
       // Empty state
       const emptyState = document.createElement("div");
@@ -386,14 +370,14 @@ window.UsagesManager = (function () {
       emptyState.style.textAlign = "center";
       emptyState.style.color = "var(--text-muted)";
       emptyState.style.fontSize = "13px";
-      emptyState.innerHTML = "No usages imported yet. Click <strong>Import Usages</strong> to get started.";
+      emptyState.innerHTML = "No rate tables imported yet. Click <strong>Import Rate Tables</strong> to get started.";
       container.appendChild(emptyState);
     }
   }
 
   function openManager() {
     Modal.open({
-      title: "Usages Manager",
+      title: "Labor Cost Rate Tables Manager",
       content: (container) => renderManager(container),
       onSave: null,
       onClose: () => Modal.close()
@@ -402,7 +386,7 @@ window.UsagesManager = (function () {
 
   return {
     openManager,
-    getImportedUsages,
-    saveImportedUsages
+    getImportedRateTables,
+    saveImportedRateTables
   };
 })();

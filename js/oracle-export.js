@@ -2,6 +2,72 @@
 
 window.OracleExport = (function() {
   
+  // Format date as mm/dd/yyyy for Oracle
+  function formatDateForOracle(dateString) {
+    if (!dateString) return "";
+    const date = new Date(dateString);
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const year = date.getFullYear();
+    return `${month}/${day}/${year}`;
+  }
+  
+  // Calculate earliest start date from activities
+  function calculateEarliestStart(node) {
+    let earliest = null;
+    
+    function findEarliest(n) {
+      if (!n.children || n.children.length === 0) {
+        // Leaf node - check activity dates
+        const entry = window.laborActivities[n.id];
+        if (entry && Array.isArray(entry.activities)) {
+          entry.activities.forEach(activity => {
+            if (activity.start) {
+              const date = new Date(activity.start);
+              if (!earliest || date < earliest) {
+                earliest = date;
+              }
+            }
+          });
+        }
+      } else {
+        // Rollup node - recurse
+        n.children.forEach(findEarliest);
+      }
+    }
+    
+    findEarliest(node);
+    return earliest ? earliest.toISOString().split('T')[0] : "";
+  }
+  
+  // Calculate latest finish date from activities
+  function calculateLatestFinish(node) {
+    let latest = null;
+    
+    function findLatest(n) {
+      if (!n.children || n.children.length === 0) {
+        // Leaf node - check activity dates
+        const entry = window.laborActivities[n.id];
+        if (entry && Array.isArray(entry.activities)) {
+          entry.activities.forEach(activity => {
+            if (activity.finish) {
+              const date = new Date(activity.finish);
+              if (!latest || date > latest) {
+                latest = date;
+              }
+            }
+          });
+        }
+      } else {
+        // Rollup node - recurse
+        n.children.forEach(findLatest);
+      }
+    }
+    
+    findLatest(node);
+    return latest ? latest.toISOString().split('T')[0] : "";
+  }
+  
   // CSV template structure based on Oracle import format
   const COLUMN_HEADERS = {
     row1: {
@@ -108,17 +174,19 @@ window.OracleExport = (function() {
       // Column E: Parent Task Number (blank if level 1)
       row[4] = level > 1 ? (parentCode || "") : "";
       
-      // Column F: Start Date (not set up yet)
-      row[5] = "";
+      // Column F: Start Date (rolled up from activities)
+      const startDate = calculateEarliestStart(node);
+      row[5] = formatDateForOracle(startDate);
       
-      // Column G: End Date (not set up yet)
-      row[6] = "";
+      // Column G: End Date (rolled up from activities)
+      const finishDate = calculateLatestFinish(node);
+      row[6] = formatDateForOracle(finishDate);
       
-      // Column H: Chargeable (default Y)
-      row[7] = "Y";
+      // Column H: Chargeable (from node.chargeable property, only if explicitly set)
+      row[7] = node.chargeable === true ? "Y" : "";
       
-      // Column I: Billable (default Y)
-      row[8] = "Y";
+      // Column I: Billable (from node.billable property, only if explicitly set)
+      row[8] = node.billable === true ? "Y" : "";
       
       // Column J: Work Type (default Home)
       row[9] = "Home";
@@ -126,10 +194,12 @@ window.OracleExport = (function() {
       // Column K: Contingency Task (not set up yet)
       row[10] = "";
       
-      // Columns L-N: Leave blank for now
+      // Columns L-M: Leave blank for now
       // L: Burden Schedule
       // M: Invoice Fee Type (Fixed Fee or T&M)
-      // N: ICRC Task (Y/N)
+      
+      // Column N: ICRC Task (from node.gcc property)
+      row[13] = node.gcc ? "Y" : "";
       
       // Column O: (intentionally blank)
       

@@ -6,7 +6,8 @@ window.Rates = (function () {
 
   async function load() {
     if (resources) return resources;
-    const res = await fetch("data/resources.json");
+    const cacheBuster = "?v=" + Date.now();
+    const res = await fetch("data/resources.json" + cacheBuster, { cache: "no-store" });
     resources = await res.json();
     return resources;
   }
@@ -14,7 +15,8 @@ window.Rates = (function () {
   async function loadNamedResources() {
     if (namedResources) return namedResources;
     try {
-      const res = await fetch("data/named-resources.json");
+      const cacheBuster = "?v=" + Date.now();
+      const res = await fetch("data/named-resources.json" + cacheBuster, { cache: "no-store" });
       namedResources = await res.json();
       return namedResources;
     } catch (e) {
@@ -178,13 +180,25 @@ window.Rates = (function () {
   async function listResources() {
     const data = await load();
     const custom = ResourceManager.getCustomResources();
+    const importedNamed = ResourceManager.getImportedNamedResources();
+    
+    // Merge named resources from resources.json with imported employees
+    const allNamed = [
+      ...(data.named || []),
+      ...importedNamed
+    ];
     
     return {
       generic: data.generic || [],
-      named: data.named || [],
+      named: allNamed,
       custom: custom || []
     };
   }
 
-  return { getRates, resolveRates, listResources, getResourceById, load, loadNamedResources };
+  function clearCache() {
+    resources = null;
+    namedResources = null;
+  }
+
+  return { getRates, resolveRates, listResources, getResourceById, load, loadNamedResources, clearCache };
 })();

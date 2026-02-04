@@ -42,7 +42,9 @@ window.currentTheme = "dark"; // "dark" or "light"
 window.expandedPricingMethods = {
   labor: false,
   expense: false,
-  usages: false
+  usages: false,
+  schedule: false,
+  taskProps: false
 };
 
 window.laborResources = [];  // Global resource list for labor pricing

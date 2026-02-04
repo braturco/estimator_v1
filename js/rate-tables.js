@@ -1,35 +1,63 @@
 // Rate Tables Registry — Multiple rate tables with cost/sell rates per job level
 
+window.RateTables = window.RateTables || {};
+
+// One-time cleanup: zero out all rates in all tables in localStorage
+window.RateTables.nukeAllRates = function() {
+  const tables = window.RateTables.getCustomTables ? window.RateTables.getCustomTables() : [];
+  tables.forEach(table => {
+    if (table.rates) {
+      Object.values(table.rates).forEach(rateEntry => {
+        // Zero out cost
+        if (rateEntry.cost) {
+          rateEntry.cost.reg = 0;
+          rateEntry.cost.ot = 0;
+        }
+        // Zero out all sell columns
+        Object.keys(rateEntry).forEach(key => {
+          if (key !== 'cost' && typeof rateEntry[key] === 'object') {
+            if ('reg' in rateEntry[key]) rateEntry[key].reg = 0;
+            if ('ot' in rateEntry[key]) rateEntry[key].ot = 0;
+          }
+        });
+      });
+    }
+  });
+  localStorage.setItem('estimator_custom_rate_tables_v1', JSON.stringify(tables));
+  alert('All rates have been zeroed out.');
+};
+
 window.RateTables = (function () {
   const CUSTOM_TABLES_KEY = "estimator_custom_rate_tables_v1";
+  const FACTORY_TABLES_KEY = "estimator_factory_rate_tables_v1";
 
-  let DEFAULT_TABLES = [];
-  let defaultTablesLoaded = false;
-
-  // Load default tables from JSON file
-  async function loadDefaultTables() {
-    if (defaultTablesLoaded) return;
-    
-    try {
-      const response = await fetch("data/rate-tables.json");
-      if (response.ok) {
-        const data = await response.json();
-        if (data.tables && Array.isArray(data.tables)) {
-          DEFAULT_TABLES = data.tables;
-          console.log("✅ Loaded", DEFAULT_TABLES.length, "rate tables from JSON");
+  // On first load, import all tables from JSON if not present in localStorage
+  async function ensureTablesInitialized() {
+    const existing = localStorage.getItem(CUSTOM_TABLES_KEY);
+    if (!existing) {
+      try {
+        const response = await fetch("data/rate-tables.json");
+        if (response.ok) {
+          const data = await response.json();
+          if (data.tables && Array.isArray(data.tables)) {
+            // Remove 'type' property and set all as editable
+            const editableTables = data.tables.map(tbl => {
+              const t = { ...tbl };
+              delete t.type;
+              return t;
+            });
+            localStorage.setItem(CUSTOM_TABLES_KEY, JSON.stringify(editableTables));
+            // Optionally store a factory backup for reset
+            localStorage.setItem(FACTORY_TABLES_KEY, JSON.stringify(editableTables));
+            console.log("✅ Imported factory rate tables into localStorage");
+          }
         }
+      } catch (e) {
+        console.warn("Failed to import rate tables from JSON", e);
       }
-    } catch (e) {
-      console.warn("Failed to load rate tables from JSON, using empty defaults", e);
-      DEFAULT_TABLES = [];
     }
-    
-    defaultTablesLoaded = true;
   }
 
-  function getDefaultTables() {
-    return JSON.parse(JSON.stringify(DEFAULT_TABLES));
-  }
 
   function getCustomTables() {
     try {
@@ -51,15 +79,18 @@ window.RateTables = (function () {
     }
   }
 
+
   async function getAllTables() {
-    await loadDefaultTables();
-    return [...getDefaultTables(), ...getCustomTables()];
+    await ensureTablesInitialized();
+    return getCustomTables();
   }
+
 
   async function getTableById(id) {
     const tables = await getAllTables();
     return tables.find(t => t.id === id);
   }
+
 
   function addCustomTable(label, description = "", defaultBL = "", defaultProv = "") {
     const tables = getCustomTables();
@@ -69,8 +100,7 @@ window.RateTables = (function () {
       description,
       defaultBL,
       defaultProv,
-      rates: {},
-      type: "custom"
+      rates: {}
     };
     tables.push(newTable);
     saveCustomTables(tables);
@@ -138,9 +168,17 @@ window.RateTables = (function () {
     return tables[idx];
   }
 
+  // Optional: Add a reset function to restore factory tables
+  function resetToFactoryDefaults() {
+    const raw = localStorage.getItem(FACTORY_TABLES_KEY);
+    if (raw) {
+      localStorage.setItem(CUSTOM_TABLES_KEY, raw);
+      return true;
+    }
+    return false;
+  }
+
   return {
-    loadDefaultTables,
-    getDefaultTables,
     getCustomTables,
     getAllTables,
     getTableById,
@@ -149,7 +187,8 @@ window.RateTables = (function () {
     deleteCustomTable,
     setCostRates,
     setSellRates,
-    updateTableRates
+    updateTableRates,
+    resetToFactoryDefaults
   };
 })();
 

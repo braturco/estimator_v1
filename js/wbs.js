@@ -428,6 +428,72 @@ function calculateLaborRollup(node, resourceId, type) {
   return total;
 }
 
+// Format date for display
+function formatDate(dateString) {
+  if (!dateString) return "";
+  const date = new Date(dateString);
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}/${month}/${day}`;
+}
+
+// Calculate earliest start date from activities
+function calculateEarliestStart(node) {
+  let earliest = null;
+  
+  function findEarliest(n) {
+    if (!n.children || n.children.length === 0) {
+      // Leaf node - check activity dates
+      const entry = laborActivities[n.id];
+      if (entry && Array.isArray(entry.activities)) {
+        entry.activities.forEach(activity => {
+          if (activity.start) {
+            const date = new Date(activity.start);
+            if (!earliest || date < earliest) {
+              earliest = date;
+            }
+          }
+        });
+      }
+    } else {
+      // Rollup node - recurse
+      n.children.forEach(findEarliest);
+    }
+  }
+  
+  findEarliest(node);
+  return earliest ? earliest.toISOString().split('T')[0] : "";
+}
+
+// Calculate latest finish date from activities
+function calculateLatestFinish(node) {
+  let latest = null;
+  
+  function findLatest(n) {
+    if (!n.children || n.children.length === 0) {
+      // Leaf node - check activity dates
+      const entry = laborActivities[n.id];
+      if (entry && Array.isArray(entry.activities)) {
+        entry.activities.forEach(activity => {
+          if (activity.finish) {
+            const date = new Date(activity.finish);
+            if (!latest || date > latest) {
+              latest = date;
+            }
+          }
+        });
+      }
+    } else {
+      // Rollup node - recurse
+      n.children.forEach(findLatest);
+    }
+  }
+  
+  findLatest(node);
+  return latest ? latest.toISOString().split('T')[0] : "";
+}
+
 // ---------------------- totals -------------------------
 function calculateTotals() {
   const totals = {
@@ -695,6 +761,49 @@ function renderWBSNode(container, node, level = 1) {
     });
   }
 
+  // Schedule date cells (rollup earliest start and latest finish)
+  let scheduleCellsHtml = "";
+  if (window.expandedPricingMethods.schedule) {
+    const startDate = calculateEarliestStart(node);
+    const finishDate = calculateLatestFinish(node);
+    scheduleCellsHtml += `
+      <div class="schedule-col-cell">
+        <div class="wbs-date-rollup">${formatDate(startDate)}</div>
+      </div>
+      <div class="schedule-col-cell">
+        <div class="wbs-date-rollup">${formatDate(finishDate)}</div>
+      </div>
+    `;
+  }
+
+  // Task properties cells (checkboxes for leaf nodes only)
+  let taskPropsCellsHtml = "";
+  if (window.expandedPricingMethods.taskProps && isLeaf) {
+    // Initialize properties if not set
+    if (node.billable === undefined) node.billable = true;
+    if (node.chargeable === undefined) node.chargeable = true;
+    if (node.gcc === undefined) node.gcc = false;
+    
+    taskPropsCellsHtml += `
+      <div class="task-prop-cell" data-prop="billable">
+        <input type="checkbox" class="task-prop-checkbox" ${node.billable ? 'checked' : ''} />
+      </div>
+      <div class="task-prop-cell" data-prop="chargeable">
+        <input type="checkbox" class="task-prop-checkbox" ${node.chargeable ? 'checked' : ''} />
+      </div>
+      <div class="task-prop-cell" data-prop="gcc">
+        <input type="checkbox" class="task-prop-checkbox" ${node.gcc ? 'checked' : ''} />
+      </div>
+    `;
+  } else if (window.expandedPricingMethods.taskProps && !isLeaf) {
+    // Empty cells for parent nodes
+    taskPropsCellsHtml += `
+      <div class="task-prop-cell"></div>
+      <div class="task-prop-cell"></div>
+      <div class="task-prop-cell"></div>
+    `;
+  }
+
   const nameClass = hasChildren ? (collapsed ? "wbs-name rollup collapsed" : "wbs-name rollup") : "wbs-name";
   const expandIconHtml = hasChildren ? `<span class="wbs-expand-icon">${collapsed ? '[+]' : '[–]'}</span>` : '<span class="wbs-expand-spacer"></span>';
 
@@ -727,6 +836,8 @@ function renderWBSNode(container, node, level = 1) {
 	  <span class="wbs-activity-label">${node.name}</span>
 	</div>
     ${laborCellsHtml}
+    ${scheduleCellsHtml}
+    ${taskPropsCellsHtml}
     <div></div>
     ${financialHtml}
   `;
@@ -751,12 +862,27 @@ function renderWBSNode(container, node, level = 1) {
     });
   });
 
+  // Add checkbox change listeners for task properties
+  row.querySelectorAll(".task-prop-checkbox").forEach((checkbox) => {
+    checkbox.addEventListener("change", (e) => {
+      e.stopPropagation();
+      const cell = checkbox.closest(".task-prop-cell");
+      const prop = cell.dataset.prop;
+      node[prop] = checkbox.checked;
+      if (typeof scheduleAutosave === "function") {
+        scheduleAutosave();
+      }
+    });
+  });
+
   // Add pill zones for leaf nodes AFTER row is added to DOM
   if (isLeaf) {
-    // Find the tags container - it's the empty div after activity name and labor cells
+    // Find the tags container - it's the empty div after activity name, labor cells, schedule cells, and task props
     const allChildren = row.children;
     const laborCellCount = window.expandedPricingMethods.labor ? laborResources.length * 2 : 0;
-    const tagZoneContainerIndex = 2 + laborCellCount; // After code, activity, and labor cells
+    const scheduleCellCount = window.expandedPricingMethods.schedule ? 2 : 0;
+    const taskPropsCount = window.expandedPricingMethods.taskProps ? 3 : 0;
+    const tagZoneContainerIndex = 2 + laborCellCount + scheduleCellCount + taskPropsCount; // After code, activity, labor, schedule, and task props cells
     const tagZoneContainer = allChildren[tagZoneContainerIndex];
 
     if (tagZoneContainer) {
@@ -765,7 +891,7 @@ function renderWBSNode(container, node, level = 1) {
     }
 
     // Render activity rows when any pricing method is expanded
-    const anyPricingExpanded = window.expandedPricingMethods.labor || window.expandedPricingMethods.expense || window.expandedPricingMethods.usages;
+    const anyPricingExpanded = window.expandedPricingMethods.labor || window.expandedPricingMethods.expense || window.expandedPricingMethods.usages || window.expandedPricingMethods.schedule;
     if (anyPricingExpanded && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
       const setActiveActivityRow = (rowEl) => {
         document.querySelectorAll(".wbs-row-active").forEach(el => {
@@ -1026,6 +1152,81 @@ function renderWBSNode(container, node, level = 1) {
             activityRow.appendChild(regInput);
             activityRow.appendChild(otInput);
           });
+        }
+
+        // Render schedule date inputs if schedule mode is expanded
+        if (window.expandedPricingMethods.schedule) {
+          // Initialize dates if not set
+          if (!activity.start) activity.start = "";
+          if (!activity.finish) activity.finish = "";
+
+          // Helper to format date for display (yyyy/mm/dd)
+          const formatForDisplay = (isoDate) => {
+            if (!isoDate) return "";
+            const [year, month, day] = isoDate.split('-');
+            return `${year}/${month}/${day}`;
+          };
+
+          // Helper to parse display format to ISO (yyyy-mm-dd)
+          const parseToISO = (displayDate) => {
+            if (!displayDate) return "";
+            const cleaned = displayDate.replace(/\//g, '-');
+            return cleaned; // yyyy/mm/dd -> yyyy-mm-dd
+          };
+
+          // Start date cell
+          const startCell = document.createElement("div");
+          startCell.className = "schedule-col-cell";
+          const startInput = document.createElement("input");
+          startInput.type = "text";
+          startInput.className = "wbs-date-input";
+          startInput.placeholder = "yyyy/mm/dd";
+          startInput.value = formatForDisplay(activity.start);
+          startInput.addEventListener("blur", () => {
+            activity.start = parseToISO(startInput.value);
+            if (window.Calculations && window.Calculations.recalculate) {
+              window.Calculations.recalculate();
+            }
+            renderWBS();
+          });
+          startInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              activity.start = parseToISO(startInput.value);
+              if (window.Calculations && window.Calculations.recalculate) {
+                window.Calculations.recalculate();
+              }
+              renderWBS();
+            }
+          });
+          startCell.appendChild(startInput);
+          activityRow.appendChild(startCell);
+
+          // Finish date cell
+          const finishCell = document.createElement("div");
+          finishCell.className = "schedule-col-cell";
+          const finishInput = document.createElement("input");
+          finishInput.type = "text";
+          finishInput.className = "wbs-date-input";
+          finishInput.placeholder = "yyyy/mm/dd";
+          finishInput.value = formatForDisplay(activity.finish);
+          finishInput.addEventListener("blur", () => {
+            activity.finish = parseToISO(finishInput.value);
+            if (window.Calculations && window.Calculations.recalculate) {
+              window.Calculations.recalculate();
+            }
+            renderWBS();
+          });
+          finishInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter") {
+              activity.finish = parseToISO(finishInput.value);
+              if (window.Calculations && window.Calculations.recalculate) {
+                window.Calculations.recalculate();
+              }
+              renderWBS();
+            }
+          });
+          finishCell.appendChild(finishInput);
+          activityRow.appendChild(finishCell);
         }
 
         const tagsCell = document.createElement("div");
@@ -1376,14 +1577,36 @@ function renderWBS() {
     }
   }
 
+  // Add schedule columns if expanded
+  if (window.expandedPricingMethods.schedule) {
+    columnTemplate += `
+      <div class="col-header schedule-header" style="text-align: center; font-size: 11px; cursor: pointer; user-select: none;">
+        Start (yyyy/mm/dd)
+      </div>
+      <div class="col-header schedule-header" style="text-align: center; font-size: 11px; cursor: pointer; user-select: none;">
+        Finish (yyyy/mm/dd)
+      </div>
+    `;
+  }
+
+  // Add task properties columns if expanded
+  if (window.expandedPricingMethods.taskProps) {
+    columnTemplate += `
+      <div class="col-header" style="text-align: center; font-size: 11px;">Billable</div>
+      <div class="col-header" style="text-align: center; font-size: 11px;">Chargeable</div>
+      <div class="col-header" style="text-align: center; font-size: 11px;">GCC</div>
+    `;
+  }
+
   const tagColIndex = window.expandedPricingMethods.labor ? 2 + laborResources.length * 2 : 2;
+  const scheduleColOffset = window.expandedPricingMethods.schedule ? 2 : 0;
   columnTemplate += `
-    <div class="col-header tags-header" data-col="${tagColIndex}">Tags<div class="col-resize-handle"></div></div>
+    <div class="col-header tags-header" data-col="${tagColIndex + scheduleColOffset}">Tags<div class="col-resize-handle"></div></div>
   `;
 
   financialColumns.forEach((col, idx) => {
     columnTemplate += `
-      <div class="col-header fin-header" data-col="${tagColIndex + 1 + idx}">${col.label}<div class="col-resize-handle"></div></div>
+      <div class="col-header fin-header" data-col="${tagColIndex + scheduleColOffset + 1 + idx}">${col.label}<div class="col-resize-handle"></div></div>
     `;
   });
 
@@ -1393,6 +1616,12 @@ function renderWBS() {
     for (let i = 0; i < laborResources.length; i++) {
       columnWidth += " 75px 75px";
     }
+  }
+  if (window.expandedPricingMethods.schedule) {
+    columnWidth += " 120px 120px"; // Start, Finish
+  }
+  if (window.expandedPricingMethods.taskProps) {
+    columnWidth += " 90px 90px 90px"; // Billable, Chargeable, GCC
   }
   columnWidth += " 130px";
   financialColumns.forEach(col => {
@@ -1546,6 +1775,8 @@ function renderWBS() {
           ...resourcesData.named.map(r => ({ ...r, type: "named" }))
         ];
         
+        console.log("🔍 Resource picker data:", allOptions.slice(0, 3)); // Debug: show first 3
+        
         Modal.open({
           title: "Change Resource",
           content: (container) => {
@@ -1595,7 +1826,12 @@ function renderWBS() {
                 item.style.transition = "background 0.15s";
                 
                 const name = document.createElement("div");
-                name.textContent = resource.label;
+                // Show job level/code if available (e.g., "E1 - Vice President" or "P5 - John Doe")
+                const jobLevelOrCode = resource.jobLevel || resource.jobCode;
+                const displayName = jobLevelOrCode
+                  ? `${jobLevelOrCode} - ${resource.label}`
+                  : resource.label;
+                name.textContent = displayName;
                 name.style.fontWeight = "500";
                 name.style.fontSize = "13px";
                 
@@ -1883,6 +2119,47 @@ function wireTopButtons() {
     };
   }
 
+  const scheduleToggle = document.getElementById("scheduleToggle");
+  if (scheduleToggle) {
+    scheduleToggle.onclick = () => {
+      window.expandedPricingMethods.schedule = !window.expandedPricingMethods.schedule;
+      
+      // Update button icon
+      scheduleToggle.textContent = (window.expandedPricingMethods.schedule ? "⊟" : "⊞") + " Schedule";
+      
+      // If expanding, expand all tasks that have activities
+      if (window.expandedPricingMethods.schedule) {
+        function expandTasksWithActivities(nodes) {
+          nodes.forEach(node => {
+            if (node.children && node.children.length > 0) {
+              expandTasksWithActivities(node.children);
+            } else {
+              // Leaf node - check if it has activities
+              if (laborActivities[node.id] && laborActivities[node.id].activities && laborActivities[node.id].activities.length > 0) {
+                expandedLaborNodes.add(node.id);
+              }
+            }
+          });
+        }
+        expandTasksWithActivities(WBS_DATA);
+      }
+      
+      renderWBS();
+    };
+  }
+
+  const taskPropsToggle = document.getElementById("taskPropsToggle");
+  if (taskPropsToggle) {
+    taskPropsToggle.onclick = () => {
+      window.expandedPricingMethods.taskProps = !window.expandedPricingMethods.taskProps;
+      
+      // Update button icon
+      taskPropsToggle.textContent = (window.expandedPricingMethods.taskProps ? "⊟" : "⊞") + " Task Props";
+      
+      renderWBS();
+    };
+  }
+
   if (addResourceBtn) {
     addResourceBtn.onclick = async () => {
       // Open resource picker modal
@@ -1941,7 +2218,12 @@ function wireTopButtons() {
               item.style.transition = "background 0.15s";
               
               const name = document.createElement("div");
-              name.textContent = resource.label;
+              // Show job level/code if available (e.g., "E1 - Vice President" or "P5 - John Doe")
+              const jobLevelOrCode = resource.jobLevel || resource.jobCode;
+              const displayName = jobLevelOrCode
+                ? `${jobLevelOrCode} - ${resource.label}`
+                : resource.label;
+              name.textContent = displayName;
               name.style.fontWeight = "500";
               name.style.fontSize = "13px";
               

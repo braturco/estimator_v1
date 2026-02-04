@@ -42,6 +42,90 @@ input[type="number"] {
   background: var(--bg-hover);
 }
 
+/* Date input styling */
+.wbs-date-input {
+  width: calc(100% - 4px);
+  margin: 2px;
+  padding: 4px 6px;
+  font-size: 11px;
+  text-align: center;
+  border: 1px solid var(--border-muted);
+  background: rgba(255, 255, 255, 0.02);
+  color: var(--text);
+  box-sizing: border-box;
+  border-radius: 4px;
+  font-family: inherit;
+}
+
+.wbs-date-input:focus {
+  outline: none;
+  border-color: var(--accent);
+  background: var(--bg-hover);
+}
+
+.wbs-date-input::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 0.7;
+  cursor: pointer;
+}
+
+.wbs-date-input::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+}
+
+/* Date rollup display */
+.wbs-date-rollup {
+  padding: 4px 6px;
+  font-size: 11px;
+  text-align: center;
+  color: var(--text);
+  font-style: normal;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+/* Schedule column cells */
+.schedule-col-cell {
+  height: 100%;
+  align-self: stretch;
+  margin: -4px 0;
+  padding: 4px 0;
+  background: var(--bg-panel) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Task property cells */
+.task-prop-cell {
+  height: 100%;
+  align-self: stretch;
+  margin: -4px 0;
+  padding: 4px 0;
+  background: var(--bg-panel) !important;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.task-prop-checkbox {
+  cursor: pointer;
+  width: 16px;
+  height: 16px;
+}
+
+.col-header.schedule-header {
+  justify-content: center;
+  text-align: center;
+  padding-right: 0;
+}
+
+.wbs-header .col-header.schedule-header {
+  justify-content: center;
+  text-align: center;
+  padding-right: 0;
+}
+
 .wbs-labor-rollup {
   padding: 3px 24px 3px 6px;
   font-size: 12px;
