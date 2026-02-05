@@ -859,7 +859,12 @@ window.ResourceManager = (function () {
             if (table.customOrder && Array.isArray(table.customOrder)) {
               rateCodes = table.customOrder;
             } else {
-              rateCodes = Object.keys(table.rates || {}).sort((a, b) => {
+              rateCodes = Object.keys(table.rates || {});
+              // If no rates are defined yet, show all available job levels
+              if (rateCodes.length === 0 && levels && Array.isArray(levels)) {
+                rateCodes = levels.map(level => level.code || level.id).filter(code => code);
+              }
+              rateCodes.sort((a, b) => {
                 // Sort by job family order: E, L, P, T, S
                 const familyOrder = { E: 0, L: 1, P: 2, T: 3, S: 4 };
                 const familyA = a.charAt(0);
