@@ -1,0 +1,101 @@
+NLR_Code,NL_Resource_Name,Unit,Rate,Type
+EQ1,Excavator,hr,250,Equipment
+LAB1,Soil Test,batch,180,Lab testing
+EQ2,Loader,hr,220,Equipment
+LAB2,Water Test,batch,160,Lab testing
+EQ3,Crane,hr,300,Equipment
+LAB3,Concrete Test,batch,200,Lab testing
+EQ4,Dump Truck,hr,210,Equipment
+LAB4,Aggregate Test,batch,170,Lab testing
+EQ5,Backhoe,hr,190,Equipment
+LAB5,Asphalt Test,batch,190,Lab testing
+EQ6,Grader,hr,230,Equipment
+LAB6,Compaction Test,batch,175,Lab testing
+EQ7,Dozer,hr,280,Equipment
+LAB7,Moisture Test,batch,165,Lab testing
+EQ8,Roller,hr,195,Equipment
+LAB8,Strength Test,batch,210,Lab testing
+EQ9,Skid Steer,hr,185,Equipment
+LAB9,PH Test,batch,155,Lab testing
+EQ10,Water Truck,hr,170,Equipment
+LAB10,Core Test,batch,220,Lab testing
+EQ11,Telehandler,hr,260,Equipment
+LAB11,Resistivity Test,batch,180,Lab testing
+EQ12,Mini Excavator,hr,175,Equipment
+LAB12,Permeability Test,batch,200,Lab testing
+EQ13,Trencher,hr,205,Equipment
+LAB13,Particle Size Test,batch,170,Lab testing
+EQ14,Compactor,hr,180,Equipment
+LAB14,Organic Test,batch,160,Lab testing
+EQ15,Hydrovac,hr,320,Equipment
+LAB15,Plasticity Test,batch,190,Lab testing
+EQ16,Concrete Pump,hr,350,Equipment
+LAB16,Atterberg Test,batch,175,Lab testing
+EQ17,Asphalt Paver,hr,330,Equipment
+LAB17,Grain Size Test,batch,165,Lab testing
+EQ18,Chip Spreader,hr,310,Equipment
+LAB18,Specific Gravity Test,batch,210,Lab testing
+EQ19,Cold Planer,hr,340,Equipment
+LAB19,Absorption Test,batch,155,Lab testing
+EQ20,Reclaimer,hr,360,Equipment
+LAB20,Color Test,batch,220,Lab testing
+EQ21,Soil Stabilizer,hr,370,Equipment
+LAB21,Texture Test,batch,180,Lab testing
+EQ22,Material Transfer Vehicle,hr,380,Equipment
+LAB22,Porosity Test,batch,200,Lab testing
+EQ23,Slipform Paver,hr,390,Equipment
+LAB23,Salinity Test,batch,170,Lab testing
+EQ24,Motor Scraper,hr,400,Equipment
+LAB24,Conductivity Test,batch,160,Lab testing
+EQ25,Surface Miner,hr,410,Equipment
+LAB25,Hardness Test,batch,190,Lab testing
+EQ26,Soil Mixer,hr,420,Equipment
+LAB26,Elasticity Test,batch,175,Lab testing
+EQ27,Soil Shredder,hr,430,Equipment
+LAB27,Plastic Limit Test,batch,165,Lab testing
+EQ28,Soil Dryer,hr,440,Equipment
+LAB28,Compaction Limit Test,batch,210,Lab testing
+EQ29,Soil Screener,hr,450,Equipment
+LAB29,Shear Test,batch,155,Lab testing
+EQ30,Soil Washer,hr,460,Equipment
+LAB30,Compression Test,batch,220,Lab testing
+EQ31,Soil Sampler,hr,470,Equipment
+LAB31,Expansion Test,batch,180,Lab testing
+EQ32,Soil Auger,hr,480,Equipment
+LAB32,Shrinkage Test,batch,200,Lab testing
+EQ33,Soil Probe,hr,490,Equipment
+LAB33,Consistency Test,batch,170,Lab testing
+EQ34,Soil Cutter,hr,500,Equipment
+LAB34,Penetration Test,batch,160,Lab testing
+EQ35,Soil Splitter,hr,510,Equipment
+LAB35,Evaporation Test,batch,190,Lab testing
+EQ36,Soil Grinder,hr,520,Equipment
+LAB36,Filtration Test,batch,175,Lab testing
+EQ37,Soil Pulverizer,hr,530,Equipment
+LAB37,Retention Test,batch,165,Lab testing
+EQ38,Soil Separator,hr,540,Equipment
+LAB38,Absorption Limit Test,batch,210,Lab testing
+EQ39,Soil Extractor,hr,550,Equipment
+LAB39,Capillarity Test,batch,155,Lab testing
+EQ40,Soil Collector,hr,560,Equipment
+LAB40,Hydraulic Test,batch,220,Lab testing
+EQ41,Soil Container,hr,570,Equipment
+LAB41,Electrochemical Test,batch,180,Lab testing
+EQ42,Soil Tray,hr,580,Equipment
+LAB42,Magnetic Test,batch,200,Lab testing
+EQ43,Soil Box,hr,590,Equipment
+LAB43,Thermal Test,batch,170,Lab testing
+EQ44,Soil Bag,hr,600,Equipment
+LAB44,Optical Test,batch,160,Lab testing
+EQ45,Soil Cart,hr,610,Equipment
+LAB45,Acoustic Test,batch,190,Lab testing
+EQ46,Soil Pallet,hr,620,Equipment
+LAB46,Ultrasonic Test,batch,175,Lab testing
+EQ47,Soil Drum,hr,630,Equipment
+LAB47,Infrared Test,batch,165,Lab testing
+EQ48,Soil Barrel,hr,640,Equipment
+LAB48,Radioactive Test,batch,210,Lab testing
+EQ49,Soil Bin,hr,650,Equipment
+LAB49,Isotope Test,batch,155,Lab testing
+EQ50,Soil Rack,hr,660,Equipment
+LAB50,Chromatography Test,batch,220,Lab testing

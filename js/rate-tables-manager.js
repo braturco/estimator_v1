@@ -31,12 +31,9 @@ window.RateTablesManager = (function () {
     const headers = lines[0].split(',').map(h => h.trim());
     const rateTables = [];
 
-    // Expected headers: PROVINCE, JOB CODE, JOB LEVEL, UNIQUE IDENTIFIER, COST RATE
-    const provinceIdx = headers.findIndex(h => h.toLowerCase() === 'province');
-    const jobCodeIdx = headers.findIndex(h => h.toLowerCase() === 'job code');
-    const jobLevelIdx = headers.findIndex(h => h.toLowerCase() === 'job level');
-    const identifierIdx = headers.findIndex(h => h.toLowerCase() === 'unique identifier');
-    const costRateIdx = headers.findIndex(h => h.toLowerCase() === 'cost rate');
+    // Expected headers: CostRate_ID, Cost_Rate
+    const costRateIdIdx = headers.findIndex(h => h.toLowerCase() === 'costrate_id');
+    const costRateIdx = headers.findIndex(h => h.toLowerCase() === 'cost_rate');
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -44,22 +41,16 @@ window.RateTablesManager = (function () {
 
       const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
 
-      const province = provinceIdx >= 0 ? cells[provinceIdx] : '';
-      const jobCode = jobCodeIdx >= 0 ? cells[jobCodeIdx] : '';
-      const jobLevel = jobLevelIdx >= 0 ? cells[jobLevelIdx] : '';
-      const identifier = identifierIdx >= 0 ? cells[identifierIdx] : '';
+      const costRateId = costRateIdIdx >= 0 ? cells[costRateIdIdx] : '';
       const costRate = costRateIdx >= 0 ? parseFloat(cells[costRateIdx]) || 0 : 0;
 
-      if (!identifier && !jobCode) continue;
+      if (!costRateId) continue;
 
       rateTables.push({
         id: `rate-${crypto.randomUUID()}`,
-        province,
-        jobCode,
-        jobLevel,
-        uniqueIdentifier: identifier,
+        costRateId,
         costRate,
-        type: "rateTable"
+        type: "costRate"
       });
     }
 
@@ -127,7 +118,7 @@ window.RateTablesManager = (function () {
         instructions.style.lineHeight = "1.6";
         instructions.innerHTML = `
           <strong>Expected CSV Columns:</strong><br>
-          PROVINCE, JOB CODE, JOB LEVEL, UNIQUE IDENTIFIER, COST RATE
+          CostRate_ID, Cost_Rate
         `;
         container.appendChild(instructions);
 
@@ -306,15 +297,15 @@ window.RateTablesManager = (function () {
       table.style.borderCollapse = "collapse";
       table.style.fontSize = "11px";
 
-      // Header row
+      // Header row (CSV columns only)
       const thead = document.createElement("thead");
       thead.style.position = "sticky";
       thead.style.top = "0";
       thead.style.background = "var(--bg-panel)";
       thead.style.zIndex = "1";
-      
+
       const headerRow = document.createElement("tr");
-      const headers = ["Province", "Job Code", "Job Level", "Unique Identifier", "Cost Rate"];
+      const headers = ["CostRate_ID", "Cost Rate"];
       headers.forEach(headerText => {
         const th = document.createElement("th");
         th.textContent = headerText;
@@ -329,7 +320,7 @@ window.RateTablesManager = (function () {
       thead.appendChild(headerRow);
       table.appendChild(thead);
 
-      // Body rows
+      // Body rows (CSV columns only)
       const tbody = document.createElement("tbody");
       importedRateTables.forEach((rate, idx) => {
         const row = document.createElement("tr");
@@ -339,11 +330,8 @@ window.RateTablesManager = (function () {
         }
 
         const cells = [
-          rate.province || "",
-          rate.jobCode || "",
-          rate.jobLevel || "",
-          rate.uniqueIdentifier || "",
-          rate.costRate ? `$${rate.costRate.toFixed(2)}` : ""
+          rate.costRateId || "",
+          rate.costRate !== undefined && rate.costRate !== null && rate.costRate !== "" ? `$${parseFloat(rate.costRate).toFixed(2)}` : ""
         ];
 
         cells.forEach(cellText => {

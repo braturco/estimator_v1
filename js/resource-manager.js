@@ -1,6 +1,13 @@
 // Resource Manager — CRUD for labor resources with categories (standard/named/custom)
+// DEBUG: resource-manager.js loaded
+console.log('[Resource Import] resource-manager.js loaded');
+// Resource Manager — CRUD for labor resources with categories (standard/named/custom)
+// DEBUG: resource-manager.js loaded
+console.log('[Resource Import] resource-manager.js loaded');
 
 window.ResourceManager = (function () {
+  // DEBUG: ResourceManager assigned
+  console.log('[Resource Import] window.ResourceManager assigned');
   const CUSTOM_RESOURCES_KEY = "estimator_custom_resources_v1";
   const IMPORTED_NAMED_RESOURCES_KEY = "estimator_imported_named_resources_v1";
 
@@ -89,24 +96,24 @@ window.ResourceManager = (function () {
 
   // Parse employee CSV with new column structure
   function parseEmployeeCSV(csvText) {
+      // DEBUG: Confirm function entry and show raw CSV
+      console.log('[Resource Import] parseEmployeeCSV called');
+      console.log('[Resource Import] raw csv:', csvText);
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim());
+    // Remove BOM if present
+    let headerLine = lines[0].replace(/^\uFEFF/, '').trim();
+    const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+    console.log('[Resource Import] Parsed headers:', headers);
+    const costRateIdx = headers.findIndex(h => h === 'rate lookup');
+    const employeeIdIdx = headers.findIndex(h => h === 'employee id');
+    const nameIdx = headers.findIndex(h => h === 'name');
+    const jobLevelIdx = headers.findIndex(h => h === 'job level');
+    const roleIdx = headers.findIndex(h => h === 'role');
+    const lvl3Idx = headers.findIndex(h => h === 'lvl3');
+    console.log('[Resource Import] Indices:', {costRateIdx, employeeIdIdx, nameIdx, jobLevelIdx, roleIdx, lvl3Idx});
     const resources = [];
-
-    // Expected headers: EmployeeID, WorkEmail, LastName, FirstName, PreferredName, OrganizationalCode, NBL, SubMarketSegment, JobCode, NameWithEmail, Full Name
-    const employeeIdIdx = headers.findIndex(h => h.toLowerCase() === 'employeeid');
-    const emailIdx = headers.findIndex(h => h.toLowerCase() === 'workemail');
-    const lastNameIdx = headers.findIndex(h => h.toLowerCase() === 'lastname');
-    const firstNameIdx = headers.findIndex(h => h.toLowerCase() === 'firstname');
-    const preferredNameIdx = headers.findIndex(h => h.toLowerCase() === 'preferredname');
-    const orgCodeIdx = headers.findIndex(h => h.toLowerCase() === 'organizationalcode');
-    const nblIdx = headers.findIndex(h => h.toLowerCase() === 'nbl');
-    const subMarketIdx = headers.findIndex(h => h.toLowerCase() === 'submarketsegment');
-    const jobCodeIdx = headers.findIndex(h => h.toLowerCase() === 'jobcode');
-    const nameWithEmailIdx = headers.findIndex(h => h.toLowerCase() === 'namewithemail');
-    const fullNameIdx = headers.findIndex(h => h.toLowerCase() === 'full name');
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -114,42 +121,34 @@ window.ResourceManager = (function () {
 
       const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
 
+      const costRateId = costRateIdx >= 0 ? cells[costRateIdx] : '';
       const employeeId = employeeIdIdx >= 0 ? cells[employeeIdIdx] : '';
-      const email = emailIdx >= 0 ? cells[emailIdx] : '';
-      const lastName = lastNameIdx >= 0 ? cells[lastNameIdx] : '';
-      const firstName = firstNameIdx >= 0 ? cells[firstNameIdx] : '';
-      const preferredName = preferredNameIdx >= 0 ? cells[preferredNameIdx] : '';
-      const orgCode = orgCodeIdx >= 0 ? cells[orgCodeIdx] : '';
-      const nbl = nblIdx >= 0 ? cells[nblIdx] : '';
-      const subMarket = subMarketIdx >= 0 ? cells[subMarketIdx] : '';
-      const jobCode = jobCodeIdx >= 0 ? cells[jobCodeIdx] : '';
-      const nameWithEmail = nameWithEmailIdx >= 0 ? cells[nameWithEmailIdx] : '';
-      const fullName = fullNameIdx >= 0 ? cells[fullNameIdx] : '';
+      const name = nameIdx >= 0 ? cells[nameIdx] : '';
+      const jobLevel = jobLevelIdx >= 0 ? cells[jobLevelIdx] : '';
+      const role = roleIdx >= 0 ? cells[roleIdx] : '';
+      const lvl3Id = lvl3Idx >= 0 ? cells[lvl3Idx] : '';
 
-      if (!employeeId && !fullName) continue;
+      if (!employeeId && !name) {
+        console.warn('[Resource Import] Skipping row', {i, line, cells, costRateId, employeeId, name});
+        continue;
+      }
 
-      // Use preferred name if available, otherwise first name
-      const displayName = fullName || `${firstName} ${lastName}`.trim();
+      // Log if any required index is -1
+      if (costRateIdx === -1 || employeeIdIdx === -1 || nameIdx === -1 || jobLevelIdx === -1 || roleIdx === -1 || lvl3Idx === -1) {
+        console.error('[Resource Import] Missing required column index', {
+          costRateIdx, employeeIdIdx, nameIdx, jobLevelIdx, roleIdx, lvl3Idx, headers
+        });
+      }
 
       resources.push({
         id: `employee-${employeeId || crypto.randomUUID()}`,
-        label: displayName,
+        costRateId,
         employeeId,
-        email,
-        lastName,
-        firstName,
-        preferredName,
-        orgCode,
-        nbl,
-        subMarket,
-        jobCode,
-        nameWithEmail,
-        fullName,
-        type: "named",
-        // Default rates - will be calculated from job code lookup
-        cost: 60,
-        sell: 120,
-        otMultiplier: 1.5
+        name,
+        jobLevel,
+        role,
+        lvl3Id,
+        type: "named"
       });
     }
 
@@ -212,6 +211,8 @@ window.ResourceManager = (function () {
   }
 
   function openManager() {
+    // DEBUG: Modal opened
+    console.log('[Resource Import] showEmployeeImportDialog called');
     Modal.open({
       title: "Labor Resource Manager",
       content: (container) => renderManager(container),
@@ -258,12 +259,21 @@ window.ResourceManager = (function () {
         instructions.style.lineHeight = "1.6";
         instructions.innerHTML = `
           <strong>Expected CSV Columns:</strong><br>
-          EmployeeID, WorkEmail, LastName, FirstName, PreferredName, OrganizationalCode, 
-          NBL, SubMarketSegment, JobCode, NameWithEmail, Full Name
+          Rate Lookup, Employee ID, Name, Job Level, Role, Lvl3
         `;
         container.appendChild(instructions);
 
         // SharePoint URL section
+
+        // DEBUG: Add file upload handler log
+        setTimeout(() => {
+          const fileInput = container.querySelector('input[type="file"]');
+          if (fileInput) {
+            fileInput.addEventListener('change', (e) => {
+              console.log('[Resource Import] File input changed', e.target.files);
+            });
+          }
+        }, 100);
         const urlSection = document.createElement("div");
         urlSection.style.display = "flex";
         urlSection.style.flexDirection = "column";
@@ -299,7 +309,6 @@ window.ResourceManager = (function () {
           const result = await importFromSharePoint(url);
           if (result.success) {
             alert(`Successfully imported ${result.count} employee resources`);
-            Modal.close();
             renderManager(container.closest(".modal-body"));
           } else {
             alert(`Import failed: ${result.error}`);
@@ -350,7 +359,6 @@ window.ResourceManager = (function () {
           const result = await importFromFile(file);
           if (result.success) {
             alert(`Successfully imported ${result.count} employee resources`);
-            Modal.close();
             renderManager(container.closest(".modal-body"));
           } else {
             alert(`Import failed: ${result.error}`);
@@ -668,416 +676,62 @@ window.ResourceManager = (function () {
             costHeader.style.gridColumn = "2 / span 2";
             headerRowPrimary.appendChild(costHeader);
 
-            // Rate column headers
-            rateColumns.forEach((col, idx) => {
-              const colHeader = document.createElement("div");
-              colHeader.textContent = col.label;
-              colHeader.style.textAlign = "center";
-              colHeader.style.gridColumn = `${4 + idx * 2} / span 2`;
-              if (idx % 2 === 1) {
-                colHeader.style.background = "rgba(96, 165, 250, 0.08)";
-              }
-              headerRowPrimary.appendChild(colHeader);
+            // Table: Imported Employees (NEW SCHEMA)
+            const importedSection = document.createElement("div");
+            importedSection.style.marginTop = "18px";
+            importedSection.style.marginBottom = "8px";
+            importedSection.style.fontWeight = "600";
+            importedSection.style.fontSize = "15px";
+            importedSection.textContent = `Imported Employees (${allResources.length})`;
+            container.appendChild(importedSection);
+
+            // Only declare 'table' once in this scope
+            table = document.createElement("div");
+            table.className = "resource-table";
+            table.style.display = "grid";
+            table.style.gridTemplateColumns = "120px 1.5fr 1fr 1fr 1fr 1fr";
+            table.style.gap = "0";
+            table.style.border = "1px solid var(--border)";
+            table.style.borderRadius = "4px";
+            table.style.overflow = "hidden";
+            table.style.background = "var(--bg-panel)";
+            table.style.marginBottom = "12px";
+            table.style.maxHeight = "340px";
+            table.style.overflowY = "auto";
+
+            // Header row (NEW SCHEMA)
+            const headerRow = document.createElement("div");
+            headerRow.className = "resource-table-header";
+            headerRow.style.display = "contents";
+            ["Rate Lookup", "Employee ID", "Name", "Job Level", "Role", "Lvl3"].forEach(label => {
+              const cell = document.createElement("div");
+              cell.textContent = label;
+              cell.style.fontWeight = "600";
+              cell.style.fontSize = "12px";
+              cell.style.padding = "8px 6px";
+              cell.style.background = "var(--bg)";
+              cell.style.borderBottom = "1px solid var(--border-muted)";
+              cell.style.color = "var(--text-muted)";
+              table.appendChild(cell);
             });
 
-            gridContainer.appendChild(headerRowPrimary);
-
-            // Create secondary header row (Reg/OT sub-headers)
-            const headerRowSecondary = document.createElement("div");
-            headerRowSecondary.style.display = "grid";
-            headerRowSecondary.style.gridTemplateColumns = `280px ${"1fr ".repeat(2 + rateColumns.length * 2).trim()}`;
-            headerRowSecondary.style.gap = "0";
-            headerRowSecondary.style.alignItems = "center";
-            headerRowSecondary.style.background = "var(--bg)";
-            headerRowSecondary.style.borderBottom = "2px solid var(--border)";
-            headerRowSecondary.style.fontWeight = "500";
-            headerRowSecondary.style.fontSize = "10px";
-            headerRowSecondary.style.color = "var(--text-muted)";
-            headerRowSecondary.style.padding = "4px 6px";
-            headerRowSecondary.style.position = "sticky";
-            headerRowSecondary.style.top = "28px";
-            headerRowSecondary.style.zIndex = "10";
-
-            const spacerSecondary = document.createElement("div");
-            headerRowSecondary.appendChild(spacerSecondary);
-
-            const costRegSub = document.createElement("div");
-            costRegSub.textContent = "Reg";
-            costRegSub.style.textAlign = "right";
-            costRegSub.style.paddingRight = "6px";
-            costRegSub.style.background = "rgba(96, 165, 250, 0.18)";
-            headerRowSecondary.appendChild(costRegSub);
-
-            const costOTSub = document.createElement("div");
-            costOTSub.textContent = "OT";
-            costOTSub.style.textAlign = "right";
-            costOTSub.style.paddingRight = "6px";
-            costOTSub.style.background = "rgba(96, 165, 250, 0.18)";
-            headerRowSecondary.appendChild(costOTSub);
-
-            rateColumns.forEach((col, idx) => {
-              const regSubHeader = document.createElement("div");
-              regSubHeader.textContent = "Reg";
-              regSubHeader.style.textAlign = "right";
-              regSubHeader.style.paddingRight = "6px";
-              if (idx % 2 === 1) {
-                regSubHeader.style.background = "rgba(96, 165, 250, 0.18)";
-              }
-              headerRowSecondary.appendChild(regSubHeader);
-
-              const otSubHeader = document.createElement("div");
-              otSubHeader.textContent = "OT";
-              otSubHeader.style.textAlign = "right";
-              otSubHeader.style.paddingRight = "6px";
-              if (idx % 2 === 1) {
-                otSubHeader.style.background = "rgba(96, 165, 250, 0.18)";
-              }
-              headerRowSecondary.appendChild(otSubHeader);
-            });
-
-            gridContainer.appendChild(headerRowSecondary);
-
-            // Render grid rows for each rate code (generic job level)
-            rateCodes.forEach((rateCode, codeIdx) => {
+            // Data rows (NEW SCHEMA)
+            allResources.forEach(resource => {
               const row = document.createElement("div");
-              row.style.display = "grid";
-              row.style.gridTemplateColumns = `280px ${"1fr ".repeat(2 + rateColumns.length * 2).trim()}`;
-              row.style.gap = "0";
-              row.style.alignItems = "stretch";
-              row.style.background = codeIdx % 2 === 0 ? "var(--bg-panel)" : "rgba(0,0,0,0.15)";
-              row.style.borderBottom = "1px solid var(--border-muted)";
-              row.style.cursor = "move";
-              row.style.transition = "opacity 0.15s";
-              row.dataset.rateCode = rateCode;
-              row.draggable = true;
-
-              // Drag handlers
-              row.addEventListener("dragstart", (e) => {
-                e.dataTransfer.effectAllowed = "move";
-                e.dataTransfer.setData("text/plain", rateCode);
-                row.style.opacity = "0.5";
+              row.className = "resource-table-row";
+              row.style.display = "contents";
+              [resource.costRateId, resource.employeeId, resource.name, resource.jobLevel, resource.role, resource.lvl3Id].forEach((val, idx) => {
+                const cell = document.createElement("div");
+                cell.textContent = val || "";
+                cell.style.fontSize = "12px";
+                cell.style.padding = "6px 6px";
+                cell.style.borderBottom = "1px solid var(--border-muted)";
+                cell.style.color = "var(--text)";
+                table.appendChild(cell);
               });
-
-              row.addEventListener("dragend", (e) => {
-                row.style.opacity = "1";
-              });
-
-              row.addEventListener("dragover", (e) => {
-                e.preventDefault();
-                e.dataTransfer.dropEffect = "move";
-                row.style.borderTop = "2px solid var(--accent)";
-              });
-
-              row.addEventListener("dragleave", (e) => {
-                if (!row.contains(e.relatedTarget)) {
-                  row.style.borderTop = "";
-                }
-              });
-
-              row.addEventListener("drop", async (e) => {
-                e.preventDefault();
-                row.style.borderTop = "";
-                const draggedCode = e.dataTransfer.getData("text/plain");
-                console.log("🎯 Drop:", draggedCode, "onto", rateCode);
-                if (draggedCode === rateCode) return;
-                
-                const draggedIdx = rateCodes.indexOf(draggedCode);
-                const targetIdx = rateCodes.indexOf(rateCode);
-                console.log("Indices:", draggedIdx, "→", targetIdx);
-                
-                if (draggedIdx === -1 || targetIdx === -1) return;
-                
-                // Remove the dragged item
-                const [moved] = rateCodes.splice(draggedIdx, 1);
-                
-                // Calculate new insertion index
-                // If dragging downward (draggedIdx < targetIdx), target shifts back by 1 after removal
-                const insertIdx = draggedIdx < targetIdx ? targetIdx - 1 : targetIdx;
-                rateCodes.splice(insertIdx, 0, moved);
-                
-                console.log("New order:", rateCodes);
-                
-                // Store the custom order in the table
-                currentTable.customOrder = [...rateCodes];
-                
-                // Rebuild the currentTable.rates object in the new order
-                const newRates = {};
-                rateCodes.forEach(code => {
-                  newRates[code] = currentTable.rates[code];
-                });
-                currentTable.rates = newRates;
-                console.log("Updated table rates keys:", Object.keys(currentTable.rates));
-                
-                // Re-render with the modified table
-                renderTableEditor(currentTable);
-              });
-
-              // Get the rate entry for this code
-              const rateEntry = table.rates[rateCode] || {};
-
-              // Job level code cell
-              const nameCell = document.createElement("div");
-              nameCell.style.padding = "6px";
-              nameCell.style.fontSize = "12px";
-              nameCell.style.fontWeight = "600";
-              nameCell.style.color = "var(--text)";
-              nameCell.style.overflow = "hidden";
-              nameCell.style.textOverflow = "ellipsis";
-              nameCell.style.whiteSpace = "nowrap";
-              nameCell.style.minWidth = "0";
-              
-              // Display code + label (e.g., "L3 - Level 3 Manager")
-              const jobLabel = codeToLabel[rateCode] || rateCode;
-              const displayText = jobLabel !== rateCode ? `${rateCode} - ${jobLabel}` : rateCode;
-              nameCell.textContent = displayText;
-              nameCell.title = displayText;
-              row.appendChild(nameCell);
-
-              // Cost Reg input
-              const costRegInput = document.createElement("input");
-              costRegInput.type = "text";
-              costRegInput.dataset.rateCode = rateCode;
-              costRegInput.dataset.type = "costReg";
-              costRegInput.value = rateEntry.cost?.reg ? rateEntry.cost.reg.toString() : "";
-              costRegInput.placeholder = "0";
-              costRegInput.style.width = "100%";
-              costRegInput.style.maxWidth = "100%";
-              costRegInput.style.minWidth = "0";
-              costRegInput.style.padding = "4px 6px";
-              costRegInput.style.margin = "2px 1px";
-              costRegInput.style.fontSize = "12px";
-              costRegInput.style.border = "1px solid var(--border-muted)";
-              costRegInput.style.borderRadius = "999px";
-              costRegInput.style.background = "rgba(255,255,255,0.02)";
-              costRegInput.style.color = "var(--text)";
-              costRegInput.style.fontVariantNumeric = "tabular-nums";
-              costRegInput.style.textAlign = "right";
-              costRegInput.style.boxSizing = "border-box";
-              costRegInput.style.background = "rgba(96, 165, 250, 0.18)";
-
-              // Cost OT input
-              const costOTInput = document.createElement("input");
-              costOTInput.type = "text";
-              costOTInput.dataset.rateCode = rateCode;
-              costOTInput.dataset.type = "costOT";
-              costOTInput.value = rateEntry.cost?.ot ? rateEntry.cost.ot.toString() : "";
-              costOTInput.placeholder = "0";
-              costOTInput.style.width = "100%";
-              costOTInput.style.maxWidth = "100%";
-              costOTInput.style.minWidth = "0";
-              costOTInput.style.padding = "4px 6px";
-              costOTInput.style.margin = "2px 1px";
-              costOTInput.style.fontSize = "12px";
-              costOTInput.style.border = "1px solid var(--border-muted)";
-              costOTInput.style.borderRadius = "999px";
-              costOTInput.style.background = "rgba(96, 165, 250, 0.18)";
-              costOTInput.style.color = "var(--text)";
-              costOTInput.style.fontVariantNumeric = "tabular-nums";
-              costOTInput.style.textAlign = "right";
-              costOTInput.style.boxSizing = "border-box";
-
-              row.appendChild(costRegInput);
-              row.appendChild(costOTInput);
-              allInputs.push(costRegInput);
-              allInputs.push(costOTInput);
-
-              // Sell inputs per column
-              rateColumns.forEach((col, colIdx) => {
-                const sellRegInput = document.createElement("input");
-                sellRegInput.type = "text";
-                sellRegInput.dataset.rateCode = rateCode;
-                sellRegInput.dataset.columnId = col.id;
-                sellRegInput.dataset.type = "sellReg";
-                sellRegInput.value = rateEntry[col.id]?.reg ? rateEntry[col.id].reg.toString() : "";
-                sellRegInput.placeholder = "0";
-                sellRegInput.style.width = "100%";
-                sellRegInput.style.maxWidth = "100%";
-                sellRegInput.style.minWidth = "0";
-                sellRegInput.style.padding = "4px 6px";
-                sellRegInput.style.margin = "2px 1px";
-                sellRegInput.style.fontSize = "12px";
-                sellRegInput.style.border = "1px solid var(--border-muted)";
-                sellRegInput.style.borderRadius = "999px";
-                sellRegInput.style.background = "rgba(255,255,255,0.02)";
-                sellRegInput.style.color = "var(--text)";
-                sellRegInput.style.fontVariantNumeric = "tabular-nums";
-                sellRegInput.style.textAlign = "right";
-                sellRegInput.style.boxSizing = "border-box";
-                if (colIdx % 2 === 1) {
-                  sellRegInput.style.background = "rgba(96, 165, 250, 0.18)";
-                }
-
-                const sellOTInput = document.createElement("input");
-                sellOTInput.type = "text";
-                sellOTInput.dataset.rateCode = rateCode;
-                sellOTInput.dataset.columnId = col.id;
-                sellOTInput.dataset.type = "sellOT";
-                sellOTInput.value = rateEntry[col.id]?.ot ? rateEntry[col.id].ot.toString() : "";
-                sellOTInput.placeholder = "0";
-                sellOTInput.style.width = "100%";
-                sellOTInput.style.maxWidth = "100%";
-                sellOTInput.style.minWidth = "0";
-                sellOTInput.style.padding = "4px 6px";
-                sellOTInput.style.margin = "2px 1px";
-                sellOTInput.style.fontSize = "12px";
-                sellOTInput.style.border = "1px solid var(--border-muted)";
-                sellOTInput.style.borderRadius = "999px";
-                sellOTInput.style.background = "rgba(255,255,255,0.02)";
-                sellOTInput.style.color = "var(--text)";
-                sellOTInput.style.fontVariantNumeric = "tabular-nums";
-                sellOTInput.style.textAlign = "right";
-                sellOTInput.style.boxSizing = "border-box";
-                if (colIdx % 2 === 1) {
-                  sellOTInput.style.background = "rgba(96, 165, 250, 0.18)";
-                }
-
-                row.appendChild(sellRegInput);
-                row.appendChild(sellOTInput);
-                allInputs.push(sellRegInput);
-                allInputs.push(sellOTInput);
-              });
-
-              // Event handlers for all inputs in this row
-              const saveRow = () => {
-                const updated = {
-                  cost: {
-                    reg: parseFloat(costRegInput.value) || 0,
-                    ot: parseFloat(costOTInput.value) || 0
-                  }
-                };
-                rateColumns.forEach(col => {
-                  const regVal = row.querySelector(`input[data-column-id="${col.id}"][data-type="sellReg"]`);
-                  const otVal = row.querySelector(`input[data-column-id="${col.id}"][data-type="sellOT"]`);
-                  updated[col.id] = {
-                    reg: parseFloat(regVal.value) || 0,
-                    ot: parseFloat(otVal.value) || 0
-                  };
-                });
-                RateTables.updateTableRates(table.id, rateCode, updated);
-              };
-
-              [costRegInput, costOTInput].forEach(input => {
-                input.addEventListener("focus", () => {
-                  input.select();
-                  row.style.background = "rgba(56, 189, 248, 0.12)";
-                  row.style.boxShadow = "inset 0 0 0 1px rgba(56, 189, 248, 0.28)";
-                  input.style.borderColor = "var(--accent)";
-                  input.style.background = "var(--bg-hover)";
-                });
-
-                input.addEventListener("blur", () => {
-                  row.style.background = "";
-                  row.style.boxShadow = "";
-                  input.style.borderColor = "var(--border-muted)";
-                  input.style.background = "rgba(255,255,255,0.02)";
-                  
-                  const raw = input.value.replace(/[^0-9.-]/g, "");
-                  const num = raw === "" ? 0 : Number(raw);
-                  if (Number.isFinite(num)) {
-                    input.value = num === 0 ? "" : num.toString();
-                  }
-                  saveRow();
-                });
-
-                input.addEventListener("keydown", (e) => {
-                  const key = e.key;
-                  if (key === "Tab" || key === "ArrowRight" || key === "ArrowLeft" || key === "ArrowUp" || key === "ArrowDown") {
-                    e.preventDefault();
-                    const currentIndex = allInputs.indexOf(input);
-                    if (currentIndex === -1) return;
-
-                    let nextIndex = currentIndex;
-                    const inputsPerRow = 2 + (rateColumns.length * 2);
-
-                    if (key === "Tab" || key === "ArrowRight") {
-                      nextIndex = currentIndex + 1;
-                    } else if (key === "ArrowLeft") {
-                      nextIndex = currentIndex - 1;
-                    } else if (key === "ArrowDown") {
-                      nextIndex = currentIndex + inputsPerRow;
-                    } else if (key === "ArrowUp") {
-                      nextIndex = currentIndex - inputsPerRow;
-                    }
-
-                    if (nextIndex >= 0 && nextIndex < allInputs.length) {
-                      allInputs[nextIndex].focus();
-                    }
-                  }
-                });
-              });
-
-              rateColumns.forEach(col => {
-                const regInput = row.querySelector(`input[data-column-id="${col.id}"][data-type="sellReg"]`);
-                const otInput = row.querySelector(`input[data-column-id="${col.id}"][data-type="sellOT"]`);
-
-                [regInput, otInput].forEach(input => {
-                  input.addEventListener("focus", () => {
-                    input.select();
-                    row.style.background = "rgba(56, 189, 248, 0.12)";
-                    row.style.boxShadow = "inset 0 0 0 1px rgba(56, 189, 248, 0.28)";
-                    input.style.borderColor = "var(--accent)";
-                    input.style.background = "var(--bg-hover)";
-                  });
-
-                  input.addEventListener("blur", () => {
-                    row.style.background = "";
-                    row.style.boxShadow = "";
-                    input.style.borderColor = "var(--border-muted)";
-                    input.style.background = col.id && rateColumns.findIndex(c => c.id === col.id) % 2 === 1 ? "rgba(96, 165, 250, 0.08)" : "rgba(255,255,255,0.02)";
-                    
-                    const raw = input.value.replace(/[^0-9.-]/g, "");
-                    const num = raw === "" ? 0 : Number(raw);
-                    if (Number.isFinite(num)) {
-                      input.value = num === 0 ? "" : num.toString();
-                    }
-                    saveRow();
-                  });
-
-                  input.addEventListener("keydown", (e) => {
-                    const key = e.key;
-                    if (key === "Tab" || key === "ArrowRight" || key === "ArrowLeft" || key === "ArrowUp" || key === "ArrowDown") {
-                      e.preventDefault();
-                      const currentIndex = allInputs.indexOf(input);
-                      if (currentIndex === -1) return;
-
-                      let nextIndex = currentIndex;
-                      const inputsPerRow = 2 + (rateColumns.length * 2);
-
-                      if (key === "Tab" || key === "ArrowRight") {
-                        nextIndex = currentIndex + 1;
-                      } else if (key === "ArrowLeft") {
-                        nextIndex = currentIndex - 1;
-                      } else if (key === "ArrowDown") {
-                        nextIndex = currentIndex + inputsPerRow;
-                      } else if (key === "ArrowUp") {
-                        nextIndex = currentIndex - inputsPerRow;
-                      }
-
-                      if (nextIndex >= 0 && nextIndex < allInputs.length) {
-                        allInputs[nextIndex].focus();
-                      }
-                    }
-                  });
-                });
-              });
-
-              gridContainer.appendChild(row);
             });
 
-            if (pendingRenameLevelId) {
-              const pendingRow = gridContainer.querySelector(`[data-level-id="${pendingRenameLevelId}"]`);
-              if (pendingRow) {
-                const pendingNameCell = pendingRow.children[0];
-                pendingRenameLevelId = null;
-                if (pendingNameCell) {
-                  pendingNameCell.dispatchEvent(new MouseEvent("dblclick", { bubbles: true }));
-                }
-              } else {
-                pendingRenameLevelId = null;
-              }
-            }
-
-            tableGridWrapper.appendChild(gridContainer);
+            container.appendChild(table);
             }); // End of async getTableById promise
           }
 
@@ -1289,7 +943,7 @@ window.ResourceManager = (function () {
       table.style.borderCollapse = "collapse";
       table.style.fontSize = "11px";
 
-      // Header row
+      // Header row (CSV columns only)
       const thead = document.createElement("thead");
       thead.style.position = "sticky";
       thead.style.top = "0";
@@ -1297,7 +951,7 @@ window.ResourceManager = (function () {
       thead.style.zIndex = "1";
       
       const headerRow = document.createElement("tr");
-      const headers = ["Employee ID", "Full Name", "Work Email", "Job Code", "Org Code", "NBL", "Sub Market"];
+      const headers = ["Rate Lookup", "Employee ID", "Name", "Job Level", "Role", "Lvl3"];
       headers.forEach(headerText => {
         const th = document.createElement("th");
         th.textContent = headerText;
@@ -1312,7 +966,7 @@ window.ResourceManager = (function () {
       thead.appendChild(headerRow);
       table.appendChild(thead);
 
-      // Body rows
+      // Body rows (CSV columns only)
       const tbody = document.createElement("tbody");
       importedEmployees.forEach((emp, idx) => {
         const row = document.createElement("tr");
@@ -1322,13 +976,12 @@ window.ResourceManager = (function () {
         }
 
         const cells = [
+          emp.costRateId || "",
           emp.employeeId || "",
-          emp.fullName || emp.label || "",
-          emp.email || "",
-          emp.jobCode || "",
-          emp.orgCode || "",
-          emp.nbl || "",
-          emp.subMarket || ""
+          emp.name || "",
+          emp.jobLevel || "",
+          emp.role || "",
+          emp.lvl3Id || ""
         ];
 
         cells.forEach(cellText => {
@@ -1635,7 +1288,7 @@ window.ResourceManager = (function () {
       section.appendChild(heading);
 
 
-      const table = document.createElement("div");
+      table = document.createElement("div");
       table.style.display = "grid";
       // Add Province column after Label
       table.style.gridTemplateColumns = editable ? "2fr 0.8fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr auto" : "2fr 0.8fr 1.2fr 0.8fr 0.8fr 0.8fr 0.8fr";

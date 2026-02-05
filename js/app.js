@@ -128,6 +128,16 @@ window.renderPalettes = function () {
 
 // Setup section buttons (sidebar)
 window.wireSetupButtons = function () {
+    // DEBUG: Check ResourceManager after all scripts load
+    setTimeout(() => {
+      if (!window.ResourceManager) {
+        console.error('[Resource Import] FATAL: window.ResourceManager is missing after all scripts loaded');
+      } else if (typeof window.ResourceManager.openManager !== 'function') {
+        console.error('[Resource Import] FATAL: window.ResourceManager.openManager is missing or not a function');
+      } else {
+        console.log('[Resource Import] window.ResourceManager and openManager are available');
+      }
+    }, 1000);
   const rateBtn = document.getElementById("setupRateScheduleBtn");
   const resourcesBtn = document.getElementById("setupResourcesBtn");
   const usagesBtn = document.getElementById("setupUsagesBtn");
@@ -135,6 +145,7 @@ window.wireSetupButtons = function () {
   const ohRatesBtn = document.getElementById("setupOHRatesBtn");
   const tagsBtn = document.getElementById("setupTagsBtn");
   const unitsBtn = document.getElementById("setupUnitsBtn");
+  const businessOrgBtn = document.getElementById("setupBusinessOrgBtn");
 
   if (rateBtn) {
     rateBtn.onclick = () => {
@@ -146,8 +157,12 @@ window.wireSetupButtons = function () {
 
   if (resourcesBtn) {
     resourcesBtn.onclick = () => {
+      console.log('[Resource Import] setupResourcesBtn clicked');
       if (window.ResourceManager && typeof ResourceManager.openManager === "function") {
+        console.log('[Resource Import] Calling ResourceManager.openManager');
         ResourceManager.openManager();
+      } else {
+        console.error('[Resource Import] ResourceManager.openManager not available');
       }
     };
   }
@@ -183,6 +198,16 @@ window.wireSetupButtons = function () {
   if (unitsBtn) {
     unitsBtn.onclick = () => {
       alert("Unit Management is coming soon.");
+    };
+  }
+
+  if (businessOrgBtn) {
+    businessOrgBtn.onclick = () => {
+      if (window.BusinessOrgManager && typeof window.BusinessOrgManager.openManager === "function") {
+        window.BusinessOrgManager.openManager();
+      } else {
+        alert("Business Organization Manager not loaded.");
+      }
     };
   }
 

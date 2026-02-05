@@ -1,0 +1,31 @@
+BusinessLine_ID,BusinessLine_Name,MarketSubSector_ID,MarketSubSector_Name,OfficeLocation_ID,OfficeLocation_Name
+BL1,Water,MS1,Drinking Water,OFF1,Toronto
+BL1,Water,MS2,Wastewater,OFF2,Montreal
+BL1,Water,MS3,Stormwater,OFF3,Vancouver
+BL1,Water,MS4,Water Quality,OFF4,Mississauga
+BL1,Water,MS5,Desalination,OFF5,Fort McMurray
+BL2,Energy,MS6,Renewables,OFF6,Calgary
+BL2,Energy,MS7,Oil & Gas,OFF7,Edmonton
+BL2,Energy,MS8,Power,OFF8,Ottawa
+BL2,Energy,MS9,Energy Storage,OFF9,Burnaby
+BL2,Energy,MS10,Nuclear,OFF10,Prince George
+BL3,Environment,MS11,Remediation,OFF11,Halifax
+BL3,Environment,MS12,Assessment,OFF12,Winnipeg
+BL3,Environment,MS13,Compliance,OFF13,Victoria
+BL3,Environment,MS14,Climate,OFF14,Red Deer
+BL3,Environment,MS15,Ecology,OFF15,Whitehorse
+BL4,Transport,MS16,Roads,OFF16,Quebec City
+BL4,Transport,MS17,Rail,OFF17,Regina
+BL4,Transport,MS18,Transit,OFF18,Saskatoon
+BL4,Transport,MS19,Airports,OFF19,Kamloops
+BL4,Transport,MS20,Ports,OFF20,Yellowknife
+BL5,Buildings,MS21,Commercial,OFF21,St. John's
+BL5,Buildings,MS22,Residential,OFF22,Charlottetown
+BL5,Buildings,MS23,Industrial,OFF23,Thunder Bay
+BL5,Buildings,MS24,Healthcare,OFF24,Medicine Hat
+BL5,Buildings,MS25,Education,OFF25,Brandon
+BL6,Digital,MS26,Smart Cities,OFF26,London
+BL6,Digital,MS27,Data Analytics,OFF27,Windsor
+BL6,Digital,MS28,Automation,OFF28,Brampton
+BL6,Digital,MS29,IoT,OFF29,Chilliwack
+BL6,Digital,MS30,AI,OFF30,Grande Prairie

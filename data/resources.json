@@ -7,7 +7,8 @@
       "jobLevel": "E1",
       "cost": 120,
       "sell": 200,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Toronto"
     },
     {
       "id": "l3-director",
@@ -16,7 +17,8 @@
       "jobLevel": "L3",
       "cost": 100,
       "sell": 170,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Montreal"
     },
     {
       "id": "l2-snr-manager",
@@ -25,7 +27,8 @@
       "jobLevel": "L2",
       "cost": 85,
       "sell": 150,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Stormwater"
     },
     {
       "id": "l1-manager",
@@ -34,7 +37,8 @@
       "jobLevel": "L1",
       "cost": 70,
       "sell": 130,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Calgary"
     },
     {
       "id": "p8-professional",
@@ -43,7 +47,8 @@
       "jobLevel": "P8",
       "cost": 75,
       "sell": 140,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Edmonton"
     },
     {
       "id": "p7-professional",
@@ -52,7 +57,8 @@
       "jobLevel": "P7",
       "cost": 70,
       "sell": 135,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Ottawa"
     },
     {
       "id": "p6-professional",
@@ -61,7 +67,8 @@
       "jobLevel": "P6",
       "cost": 65,
       "sell": 130,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Halifax"
     },
     {
       "id": "p5-professional",
@@ -70,7 +77,8 @@
       "jobLevel": "P5",
       "cost": 60,
       "sell": 120,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Winnipeg"
     },
     {
       "id": "p4-professional",
@@ -79,7 +87,8 @@
       "jobLevel": "P4",
       "cost": 55,
       "sell": 110,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Victoria"
     },
     {
       "id": "p3-professional",
@@ -88,7 +97,8 @@
       "jobLevel": "P3",
       "cost": 50,
       "sell": 100,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Quebec City"
     },
     {
       "id": "p2-professional",
@@ -97,7 +107,8 @@
       "jobLevel": "P2",
       "cost": 45,
       "sell": 90,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Regina"
     },
     {
       "id": "p1-professional",
@@ -106,7 +117,8 @@
       "jobLevel": "P1",
       "cost": 40,
       "sell": 80,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Saskatoon"
     },
     {
       "id": "p0-professional",
@@ -115,7 +127,8 @@
       "jobLevel": "P0",
       "cost": 35,
       "sell": 70,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "St. John's"
     },
     {
       "id": "t5-technician",
@@ -124,7 +137,8 @@
       "jobLevel": "T5",
       "cost": 50,
       "sell": 100,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Charlottetown"
     },
     {
       "id": "t4-technician",
@@ -133,7 +147,8 @@
       "jobLevel": "T4",
       "cost": 45,
       "sell": 90,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Thunder Bay"
     },
     {
       "id": "t3-technician",
@@ -142,7 +157,8 @@
       "jobLevel": "T3",
       "cost": 40,
       "sell": 80,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "London"
     },
     {
       "id": "t2-technician",
@@ -151,7 +167,8 @@
       "jobLevel": "T2",
       "cost": 35,
       "sell": 70,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Windsor"
     },
     {
       "id": "t1-technician",
@@ -160,7 +177,8 @@
       "jobLevel": "T1",
       "cost": 30,
       "sell": 60,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Brampton"
     },
     {
       "id": "s4-admin",
@@ -169,7 +187,8 @@
       "jobLevel": "S4",
       "cost": 35,
       "sell": 70,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Mississauga"
     },
     {
       "id": "s3-admin",
@@ -178,7 +197,8 @@
       "jobLevel": "S3",
       "cost": 30,
       "sell": 60,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Burnaby"
     },
     {
       "id": "s2-admin",
@@ -187,7 +207,8 @@
       "jobLevel": "S2",
       "cost": 25,
       "sell": 50,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Red Deer"
     },
     {
       "id": "s1-admin",
@@ -196,7 +217,8 @@
       "jobLevel": "S1",
       "cost": 22,
       "sell": 45,
-      "otMultiplier": 1.5
+      "otMultiplier": 1.5,
+      "officeLocation": "Kamloops"
     }
   ],
   "named": []
