@@ -73,6 +73,45 @@ window.RateScheduleManager = (function () {
     tablesList.style.gap = "8px";
     container.appendChild(tablesList);
 
+    // Action buttons
+    const actionButtons = document.createElement("div");
+    actionButtons.style.display = "flex";
+    actionButtons.style.gap = "8px";
+    actionButtons.style.marginBottom = "16px";
+    container.appendChild(actionButtons);
+
+    // Rate Schedule button
+    const rateScheduleBtn = document.createElement("button");
+    rateScheduleBtn.className = "btn btn-primary";
+    rateScheduleBtn.textContent = "🧮 Rate Schedule";
+    rateScheduleBtn.addEventListener("click", () => {
+      // Open Resource Manager which has the rate schedule functionality
+      if (window.ResourceManager && typeof window.ResourceManager.openManager === "function") {
+        window.ResourceManager.openManager();
+        // Close current modal
+        Modal.close();
+      } else {
+        alert("Resource Manager is not available.");
+      }
+    });
+    actionButtons.appendChild(rateScheduleBtn);
+
+    // Import Employees button
+    const importEmployeesBtn = document.createElement("button");
+    importEmployeesBtn.className = "btn btn-secondary";
+    importEmployeesBtn.textContent = "📥 Import Employees";
+    importEmployeesBtn.addEventListener("click", () => {
+      // Open Resource Manager which has the employee import functionality
+      if (window.ResourceManager && typeof window.ResourceManager.openManager === "function") {
+        window.ResourceManager.openManager();
+        // Close current modal
+        Modal.close();
+      } else {
+        alert("Resource Manager is not available.");
+      }
+    });
+    actionButtons.appendChild(importEmployeesBtn);
+
     // Load existing tables synchronously from localStorage
     let existingTables = [];
     try {
