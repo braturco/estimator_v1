@@ -591,7 +591,8 @@ window.ResourceManager = (function () {
         instructions.style.lineHeight = "1.6";
         instructions.innerHTML = `
           <strong>Expected CSV Columns:</strong><br>
-          code, label, jobFamily, jobLevel, costRate, chargeoutRate
+          Job Lvl Code, Job Lvl Name<br>
+          <em>Only these two columns are required. Additional columns (jobFamily, jobLevel, costRate, chargeoutRate) are optional.</em>
         `;
         container.appendChild(instructions);
 
@@ -945,6 +946,162 @@ window.ResourceManager = (function () {
             costHeader.style.textAlign = "center";
             costHeader.style.gridColumn = "2 / span 2";
             headerRowPrimary.appendChild(costHeader);
+
+            // Add rate column headers
+            rateColumns.forEach((col, idx) => {
+              const sellHeader = document.createElement("div");
+              sellHeader.textContent = col.label;
+              sellHeader.style.textAlign = "center";
+              sellHeader.style.gridColumn = `${3 + idx * 2} / span 2`;
+              headerRowPrimary.appendChild(sellHeader);
+            });
+
+            gridContainer.appendChild(headerRowPrimary);
+
+            // Create data rows for each job level
+            rateCodes.forEach(rateCode => {
+              const rateData = table.rates[rateCode] || { cost: { reg: 0, ot: 0 }, sell: {} };
+              const levelLabel = codeToLabel[rateCode] || fallbackLabels[rateCode] || rateCode;
+
+              const dataRow = document.createElement("div");
+              dataRow.style.display = "grid";
+              dataRow.style.gridTemplateColumns = `280px ${"1fr ".repeat(2 + rateColumns.length * 2).trim()}`;
+              dataRow.style.gap = "0";
+              dataRow.style.alignItems = "center";
+              dataRow.style.padding = "4px 6px";
+              dataRow.style.borderBottom = "1px solid var(--border-muted)";
+              dataRow.style.background = "var(--bg-panel)";
+
+              // Job Level cell
+              const levelCell = document.createElement("div");
+              levelCell.textContent = `${rateCode} - ${levelLabel}`;
+              levelCell.style.fontSize = "12px";
+              levelCell.style.fontWeight = "500";
+              levelCell.style.color = "var(--text)";
+              dataRow.appendChild(levelCell);
+
+              // Cost Regular input
+              const costRegInput = document.createElement("input");
+              costRegInput.type = "number";
+              costRegInput.step = "0.01";
+              costRegInput.min = "0";
+              costRegInput.value = rateData.cost?.reg || 0;
+              costRegInput.dataset.rateCode = rateCode;
+              costRegInput.dataset.type = "costReg";
+              costRegInput.style.width = "100%";
+              costRegInput.style.padding = "4px 6px";
+              costRegInput.style.border = "1px solid var(--border-muted)";
+              costRegInput.style.borderRadius = "3px";
+              costRegInput.style.background = "rgba(96, 165, 250, 0.18)";
+              costRegInput.style.color = "var(--text)";
+              costRegInput.style.fontSize = "11px";
+              costRegInput.style.textAlign = "right";
+              costRegInput.addEventListener("input", () => {
+                const table = currentTable;
+                if (table && table.rates[rateCode]) {
+                  table.rates[rateCode].cost = table.rates[rateCode].cost || { reg: 0, ot: 0 };
+                  table.rates[rateCode].cost.reg = parseFloat(costRegInput.value) || 0;
+                  RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
+                }
+              });
+              dataRow.appendChild(costRegInput);
+              allInputs.push(costRegInput);
+
+              // Cost OT input
+              const costOTInput = document.createElement("input");
+              costOTInput.type = "number";
+              costOTInput.step = "0.01";
+              costOTInput.min = "0";
+              costOTInput.value = rateData.cost?.ot || 0;
+              costOTInput.dataset.rateCode = rateCode;
+              costOTInput.dataset.type = "costOT";
+              costOTInput.style.width = "100%";
+              costOTInput.style.padding = "4px 6px";
+              costOTInput.style.border = "1px solid var(--border-muted)";
+              costOTInput.style.borderRadius = "3px";
+              costOTInput.style.background = "rgba(96, 165, 250, 0.18)";
+              costOTInput.style.color = "var(--text)";
+              costOTInput.style.fontSize = "11px";
+              costOTInput.style.textAlign = "right";
+              costOTInput.addEventListener("input", () => {
+                const table = currentTable;
+                if (table && table.rates[rateCode]) {
+                  table.rates[rateCode].cost = table.rates[rateCode].cost || { reg: 0, ot: 0 };
+                  table.rates[rateCode].cost.ot = parseFloat(costOTInput.value) || 0;
+                  RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
+                }
+              });
+              dataRow.appendChild(costOTInput);
+              allInputs.push(costOTInput);
+
+              // Sell rate inputs for each column
+              rateColumns.forEach(col => {
+                const sellReg = rateData.sell?.[col.id]?.regular || 0;
+                const sellOT = rateData.sell?.[col.id]?.ot || 0;
+
+                // Regular sell input
+                const sellRegInput = document.createElement("input");
+                sellRegInput.type = "number";
+                sellRegInput.step = "0.01";
+                sellRegInput.min = "0";
+                sellRegInput.value = sellReg;
+                sellRegInput.dataset.rateCode = rateCode;
+                sellRegInput.dataset.columnId = col.id;
+                sellRegInput.dataset.type = "sellReg";
+                sellRegInput.style.width = "100%";
+                sellRegInput.style.padding = "4px 6px";
+                sellRegInput.style.border = "1px solid var(--border-muted)";
+                sellRegInput.style.borderRadius = "3px";
+                sellRegInput.style.background = "var(--bg)";
+                sellRegInput.style.color = "var(--text)";
+                sellRegInput.style.fontSize = "11px";
+                sellRegInput.style.textAlign = "right";
+                sellRegInput.addEventListener("input", () => {
+                  const table = currentTable;
+                  if (table && table.rates[rateCode]) {
+                    table.rates[rateCode].sell = table.rates[rateCode].sell || {};
+                    table.rates[rateCode].sell[col.id] = table.rates[rateCode].sell[col.id] || { regular: 0, ot: 0 };
+                    table.rates[rateCode].sell[col.id].regular = parseFloat(sellRegInput.value) || 0;
+                    RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
+                  }
+                });
+                dataRow.appendChild(sellRegInput);
+                allInputs.push(sellRegInput);
+
+                // OT sell input
+                const sellOTInput = document.createElement("input");
+                sellOTInput.type = "number";
+                sellOTInput.step = "0.01";
+                sellOTInput.min = "0";
+                sellOTInput.value = sellOT;
+                sellOTInput.dataset.rateCode = rateCode;
+                sellOTInput.dataset.columnId = col.id;
+                sellOTInput.dataset.type = "sellOT";
+                sellOTInput.style.width = "100%";
+                sellOTInput.style.padding = "4px 6px";
+                sellOTInput.style.border = "1px solid var(--border-muted)";
+                sellOTInput.style.borderRadius = "3px";
+                sellOTInput.style.background = "var(--bg)";
+                sellOTInput.style.color = "var(--text)";
+                sellOTInput.style.fontSize = "11px";
+                sellOTInput.style.textAlign = "right";
+                sellOTInput.addEventListener("input", () => {
+                  const table = currentTable;
+                  if (table && table.rates[rateCode]) {
+                    table.rates[rateCode].sell = table.rates[rateCode].sell || {};
+                    table.rates[rateCode].sell[col.id] = table.rates[rateCode].sell[col.id] || { regular: 0, ot: 0 };
+                    table.rates[rateCode].sell[col.id].ot = parseFloat(sellOTInput.value) || 0;
+                    RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
+                  }
+                });
+                dataRow.appendChild(sellOTInput);
+                allInputs.push(sellOTInput);
+              });
+
+              gridContainer.appendChild(dataRow);
+            });
+
+            tableGridWrapper.appendChild(gridContainer);
 
             // Table: Imported Employees (NEW SCHEMA)
             const importedSection = document.createElement("div");
