@@ -144,6 +144,7 @@ window.wireSetupButtons = function () {
   const usagesBtn = document.getElementById("setupUsagesBtn");
   const rateTablesBtn = document.getElementById("setupRateTablesBtn");
   const ohRatesBtn = document.getElementById("setupOHRatesBtn");
+  const mandatoryWBSTasksBtn = document.getElementById("setupMandatoryWBSTasksBtn");
   const tagsBtn = document.getElementById("setupTagsBtn");
   const unitsBtn = document.getElementById("setupUnitsBtn");
   const businessOrgBtn = document.getElementById("setupBusinessOrgBtn");
@@ -197,6 +198,12 @@ window.wireSetupButtons = function () {
   if (ohRatesBtn) {
     ohRatesBtn.onclick = () => {
       openOHRatesSettings();
+    };
+  }
+
+  if (mandatoryWBSTasksBtn) {
+    mandatoryWBSTasksBtn.onclick = () => {
+      openMandatoryWBSTasksSettings();
     };
   }
 
@@ -582,6 +589,161 @@ function openOHRatesSettings() {
         // Trigger recalculation
         if (window.Calculations && window.Calculations.recalculate) {
           window.Calculations.recalculate();
+        }
+        
+        Modal.close();
+      };
+    },
+    onSave: (container) => {
+      if (container._saveCallback) {
+        container._saveCallback();
+      }
+    }
+  });
+}
+
+// Mandatory WBS Tasks Settings Modal
+function openMandatoryWBSTasksSettings() {
+  Modal.open({
+    title: "Mandatory WBS Tasks",
+    content: (container) => {
+      container.innerHTML = "";
+      container.style.padding = "12px";
+      container.style.maxWidth = "500px";
+
+      const intro = document.createElement("p");
+      intro.textContent = "Configure mandatory WBS tasks that will always appear in estimates. These tasks cannot be deleted and are automatically included.";
+      intro.style.marginBottom = "12px";
+      intro.style.color = "var(--text-muted)";
+      intro.style.fontSize = "10px";
+      container.appendChild(intro);
+
+      // Current mandatory tasks list
+      const tasksList = document.createElement("div");
+      tasksList.style.marginBottom = "16px";
+
+      const refreshTasksList = () => {
+        tasksList.innerHTML = "";
+
+        const header = document.createElement("div");
+        header.style.display = "grid";
+        header.style.gridTemplateColumns = "120px 1fr 80px";
+        header.style.gap = "8px";
+        header.style.marginBottom = "8px";
+        header.style.fontSize = "10px";
+        header.style.fontWeight = "600";
+        header.style.color = "var(--text-muted)";
+        header.style.textTransform = "uppercase";
+        header.innerHTML = `
+          <div>WBS Code</div>
+          <div>Name</div>
+          <div>Enabled</div>
+        `;
+        tasksList.appendChild(header);
+
+        window.mandatoryWBSTasks.forEach((task, index) => {
+          const row = document.createElement("div");
+          row.style.display = "grid";
+          row.style.gridTemplateColumns = "120px 1fr 80px";
+          row.style.gap = "8px";
+          row.style.alignItems = "center";
+          row.style.marginBottom = "4px";
+          row.style.padding = "6px";
+          row.style.border = "1px solid var(--border)";
+          row.style.borderRadius = "4px";
+          row.style.background = "var(--bg-hover)";
+
+          const codeInput = document.createElement("input");
+          codeInput.type = "text";
+          codeInput.value = task.code;
+          codeInput.style.width = "100%";
+          codeInput.style.padding = "4px";
+          codeInput.style.border = "1px solid var(--border)";
+          codeInput.style.borderRadius = "3px";
+          codeInput.style.background = "var(--bg)";
+          codeInput.style.color = "var(--text)";
+          codeInput.style.fontSize = "11px";
+          codeInput.addEventListener("input", () => {
+            task.code = codeInput.value;
+          });
+
+          const nameInput = document.createElement("input");
+          nameInput.type = "text";
+          nameInput.value = task.name;
+          nameInput.style.width = "100%";
+          nameInput.style.padding = "4px";
+          nameInput.style.border = "1px solid var(--border)";
+          nameInput.style.borderRadius = "3px";
+          nameInput.style.background = "var(--bg)";
+          nameInput.style.color = "var(--text)";
+          nameInput.style.fontSize = "11px";
+          nameInput.addEventListener("input", () => {
+            task.name = nameInput.value;
+          });
+
+          const enabledCheckbox = document.createElement("input");
+          enabledCheckbox.type = "checkbox";
+          enabledCheckbox.checked = task.enabled;
+          enabledCheckbox.style.cursor = "pointer";
+          enabledCheckbox.addEventListener("change", () => {
+            task.enabled = enabledCheckbox.checked;
+          });
+
+          const removeBtn = document.createElement("button");
+          removeBtn.className = "btn btn-secondary";
+          removeBtn.textContent = "×";
+          removeBtn.style.width = "24px";
+          removeBtn.style.height = "24px";
+          removeBtn.style.padding = "0";
+          removeBtn.style.fontSize = "12px";
+          removeBtn.style.marginLeft = "4px";
+          removeBtn.addEventListener("click", () => {
+            if (confirm(`Remove mandatory task "${task.name}"?`)) {
+              window.mandatoryWBSTasks.splice(index, 1);
+              refreshTasksList();
+            }
+          });
+
+          row.appendChild(codeInput);
+          row.appendChild(nameInput);
+          row.appendChild(enabledCheckbox);
+          row.appendChild(removeBtn);
+          tasksList.appendChild(row);
+        });
+      };
+
+      container.appendChild(tasksList);
+      refreshTasksList();
+
+      // Add new task button
+      const addBtn = document.createElement("button");
+      addBtn.className = "btn btn-secondary";
+      addBtn.textContent = "+ Add Mandatory Task";
+      addBtn.style.marginTop = "8px";
+      addBtn.addEventListener("click", () => {
+        window.mandatoryWBSTasks.push({
+          code: "NEW.TASK",
+          name: "New Mandatory Task",
+          enabled: true
+        });
+        refreshTasksList();
+      });
+      container.appendChild(addBtn);
+
+      // Save callback
+      container._saveCallback = () => {
+        console.log("✅ Mandatory WBS Tasks updated:", window.mandatoryWBSTasks);
+        
+        // Update the permanent admin task based on configuration
+        const adminTask = window.mandatoryWBSTasks.find(t => t.code === "ZZZZ.ADMIN");
+        if (adminTask && adminTask.enabled) {
+          window.ADMIN_TASK.code = adminTask.code;
+          window.ADMIN_TASK.name = adminTask.name;
+        }
+        
+        // Trigger WBS re-render to show changes
+        if (typeof renderWBS === "function") {
+          renderWBS();
         }
         
         Modal.close();

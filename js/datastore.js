@@ -19,6 +19,35 @@ window.WBS_DATA = [
   }
 ];
 
+// Permanent admin task that always exists
+window.ADMIN_TASK = {
+  id: "admin-task",
+  code: "ZZZZ.ADMIN",
+  name: "ZZZZ.ADMIN",
+  grossRevenue: 0,
+  subcontractors: 0,
+  odc: 0,
+  directLabor: 0,
+  netRevenue: 0,
+  dlm: 0,
+  fringeBurden: 0,
+  pcm: 0,
+  pcmPct: 0,
+  ohBurden: 0,
+  burdenedLabor: 0,
+  totalCost: 0,
+  netMargin: 0,
+  nmPct: 0,
+  gmPct: 0,
+  children: [],
+  isPermanent: true // Flag to prevent deletion
+};
+
+// Mandatory WBS tasks configuration
+window.mandatoryWBSTasks = [
+  { code: "ZZZZ.ADMIN", name: "ZZZZ.ADMIN", enabled: true }
+];
+
 // Pills attached to WBS nodes:
 // { [wbsNodeId]: { estimateType: [...], tag: [...], unit: [...] } }
 window.wbsPills = {};

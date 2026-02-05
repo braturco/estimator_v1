@@ -311,6 +311,12 @@ function deleteNode(id) {
   const node = findNodeById(WBS_DATA, id);
   if (!node) return;
 
+  // Prevent deletion of permanent mandatory tasks
+  if (node.isPermanent) {
+    alert("Cannot delete permanent mandatory task.");
+    return;
+  }
+
   // Check if node has non-zero values
   function hasNonZeroValues(n) {
     if (
@@ -1927,6 +1933,35 @@ function renderWBS() {
   }
 
   WBS_DATA.forEach(node => renderWBSNode(container, node, 1));
+
+  // Always render enabled mandatory tasks at the bottom
+  window.mandatoryWBSTasks.forEach(task => {
+    if (task.enabled) {
+      const mandatoryTask = {
+        id: `mandatory-${task.code}`,
+        code: task.code,
+        name: task.name,
+        grossRevenue: 0,
+        subcontractors: 0,
+        odc: 0,
+        directLabor: 0,
+        netRevenue: 0,
+        dlm: 0,
+        fringeBurden: 0,
+        pcm: 0,
+        pcmPct: 0,
+        ohBurden: 0,
+        burdenedLabor: 0,
+        totalCost: 0,
+        netMargin: 0,
+        nmPct: 0,
+        gmPct: 0,
+        children: [],
+        isPermanent: true // Flag to prevent deletion
+      };
+      renderWBSNode(container, mandatoryTask, 1);
+    }
+  });
 
   const totalsRow = document.createElement("div");
   totalsRow.id = "wbsTotals";
