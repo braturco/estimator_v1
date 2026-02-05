@@ -44,6 +44,7 @@ window.RateScheduleManager = (function () {
   }
 
   function renderManager(container, jobLevels) {
+    console.log("🔄 renderManager called, container:", container);
     console.log("renderManager called with container:", container);
     container.innerHTML = "";
     container.style.display = "flex";
@@ -65,13 +66,6 @@ window.RateScheduleManager = (function () {
       • Job levels are loaded from job-levels-basic.csv
     `;
     container.appendChild(instructions);
-
-    // Tables list
-    const tablesList = document.createElement("div");
-    tablesList.style.display = "flex";
-    tablesList.style.flexDirection = "column";
-    tablesList.style.gap = "8px";
-    container.appendChild(tablesList);
 
     // Action buttons
     const actionButtons = document.createElement("div");
@@ -111,6 +105,15 @@ window.RateScheduleManager = (function () {
       }
     });
     actionButtons.appendChild(importEmployeesBtn);
+
+    console.log("✅ Action buttons created and appended:", actionButtons.children.length);
+
+    // Tables list
+    const tablesList = document.createElement("div");
+    tablesList.style.display = "flex";
+    tablesList.style.flexDirection = "column";
+    tablesList.style.gap = "8px";
+    container.appendChild(tablesList);
 
     // Load existing tables synchronously from localStorage
     let existingTables = [];

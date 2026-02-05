@@ -212,7 +212,7 @@ window.ResourceManager = (function () {
 
   function openManager() {
     // DEBUG: Modal opened
-    console.log('[Resource Import] showEmployeeImportDialog called');
+    console.log('[Resource Manager] openManager called');
     Modal.open({
       title: "Labor Resource Manager",
       content: (container) => renderManager(container),
@@ -375,10 +375,12 @@ window.ResourceManager = (function () {
   }
 
   async function renderManager(container) {
+    console.log('[Resource Manager] renderManager called');
     container.innerHTML = "";
     container.style.display = "flex";
     container.style.flexDirection = "column";
-    container.style.height = "100%";
+    container.style.flex = "1";
+    container.style.minHeight = "0";
 
     const allResources = await getAllResources();
 
@@ -893,6 +895,8 @@ window.ResourceManager = (function () {
     toolbar.appendChild(rateScheduleBtn);
     toolbar.appendChild(importEmployeesBtn);
     container.appendChild(toolbar);
+
+    console.log("✅ Resource Manager toolbar appended with buttons:", toolbar.children.length);
 
     // Display imported employees section
     const importedEmployees = getImportedNamedResources();

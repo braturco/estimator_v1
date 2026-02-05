@@ -3,6 +3,427 @@
 // Sell rates are per rate column (Standard, Premium, Discount, etc.)
 // Resources can inherit from a job level and override as needed
 
+const embeddedJobLevels = {
+  "levels": [
+    {
+      "id": "E1",
+      "label": "Vice President",
+      "jobFamily": "Executive",
+      "costRegular": 120,
+      "costOT": 180,
+      "sellRates": {
+        "standard": 200,
+        "premium": 240,
+        "discount": 160
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "L3",
+      "label": "Director",
+      "jobFamily": "Management",
+      "costRegular": 100,
+      "costOT": 150,
+      "sellRates": {
+        "standard": 170,
+        "premium": 200,
+        "discount": 140
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "L2",
+      "label": "Snr. Manager",
+      "jobFamily": "Management",
+      "costRegular": 85,
+      "costOT": 127.5,
+      "sellRates": {
+        "standard": 150,
+        "premium": 180,
+        "discount": 120
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "L1",
+      "label": "Manager",
+      "jobFamily": "Management",
+      "costRegular": 70,
+      "costOT": 105,
+      "sellRates": {
+        "standard": 130,
+        "premium": 160,
+        "discount": 100
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P8",
+      "label": "Level 8 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 75,
+      "costOT": 112.5,
+      "sellRates": {
+        "standard": 140,
+        "premium": 170,
+        "discount": 110
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P7",
+      "label": "Level 7 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 70,
+      "costOT": 105,
+      "sellRates": {
+        "standard": 135,
+        "premium": 160,
+        "discount": 105
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P6",
+      "label": "Level 6 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 65,
+      "costOT": 97.5,
+      "sellRates": {
+        "standard": 130,
+        "premium": 155,
+        "discount": 100
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P5",
+      "label": "Level 5 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 60,
+      "costOT": 90,
+      "sellRates": {
+        "standard": 120,
+        "premium": 145,
+        "discount": 95
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P4",
+      "label": "Level 4 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 55,
+      "costOT": 82.5,
+      "sellRates": {
+        "standard": 110,
+        "premium": 135,
+        "discount": 85
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P3",
+      "label": "Level 3 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 50,
+      "costOT": 75,
+      "sellRates": {
+        "standard": 100,
+        "premium": 125,
+        "discount": 75
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P2",
+      "label": "Level 2 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 45,
+      "costOT": 67.5,
+      "sellRates": {
+        "standard": 90,
+        "premium": 115,
+        "discount": 65
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P1",
+      "label": "Level 1 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 40,
+      "costOT": 60,
+      "sellRates": {
+        "standard": 80,
+        "premium": 105,
+        "discount": 55
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "P0",
+      "label": "Level 0 Professional",
+      "jobFamily": "Professional",
+      "costRegular": 35,
+      "costOT": 52.5,
+      "sellRates": {
+        "standard": 70,
+        "premium": 95,
+        "discount": 45
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "T5",
+      "label": "Level 5 Tech",
+      "jobFamily": "Technician",
+      "costRegular": 50,
+      "costOT": 75,
+      "sellRates": {
+        "standard": 100,
+        "premium": 125,
+        "discount": 75
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "T4",
+      "label": "Level 4 Tech",
+      "jobFamily": "Technician",
+      "costRegular": 45,
+      "costOT": 67.5,
+      "sellRates": {
+        "standard": 90,
+        "premium": 115,
+        "discount": 65
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "T3",
+      "label": "Level 3 Tech",
+      "jobFamily": "Technician",
+      "costRegular": 40,
+      "costOT": 60,
+      "sellRates": {
+        "standard": 80,
+        "premium": 105,
+        "discount": 55
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "T2",
+      "label": "Level 2 Tech",
+      "jobFamily": "Technician",
+      "costRegular": 35,
+      "costOT": 52.5,
+      "sellRates": {
+        "standard": 70,
+        "premium": 95,
+        "discount": 45
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "T1",
+      "label": "Level 1 Tech",
+      "jobFamily": "Technician",
+      "costRegular": 30,
+      "costOT": 45,
+      "sellRates": {
+        "standard": 60,
+        "premium": 85,
+        "discount": 35
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "S4",
+      "label": "Level 4 Admin",
+      "jobFamily": "Admin",
+      "costRegular": 35,
+      "costOT": 52.5,
+      "sellRates": {
+        "standard": 70,
+        "premium": 95,
+        "discount": 45
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "S3",
+      "label": "Level 3 Admin",
+      "jobFamily": "Admin",
+      "costRegular": 30,
+      "costOT": 45,
+      "sellRates": {
+        "standard": 60,
+        "premium": 85,
+        "discount": 35
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "S2",
+      "label": "Level 2 Admin",
+      "jobFamily": "Admin",
+      "costRegular": 25,
+      "costOT": 37.5,
+      "sellRates": {
+        "standard": 50,
+        "premium": 75,
+        "discount": 25
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "S1",
+      "label": "Level 1 Admin",
+      "jobFamily": "Admin",
+      "costRegular": 22,
+      "costOT": 33,
+      "sellRates": {
+        "standard": 45,
+        "premium": 65,
+        "discount": 20
+      },
+      "otMultiplier": 1.5,
+      "type": "generic"
+    },
+    {
+      "id": "brandon-turcotte",
+      "label": "Brandon Turcotte",
+      "jobFamily": "Management",
+      "jobLevel": "L3",
+      "location": "NB",
+      "businessLine": "BL002",
+      "costCentre": "Executive",
+      "costRegular": 105,
+      "costOT": 157.5,
+      "sellRates": {
+        "standard": 180,
+        "premium": 210,
+        "discount": 150
+      },
+      "otMultiplier": 1.5,
+      "type": "named"
+    },
+    {
+      "id": "nikki-belanger-turcotte",
+      "label": "Nikki Belanger-Turcotte",
+      "jobFamily": "Professional",
+      "jobLevel": "P6",
+      "location": "ON",
+      "businessLine": "BL002",
+      "costCentre": "ONAC",
+      "costRegular": 68,
+      "costOT": 102,
+      "sellRates": {
+        "standard": 135,
+        "premium": 160,
+        "discount": 105
+      },
+      "otMultiplier": 1.5,
+      "type": "named"
+    },
+    {
+      "id": "isaac-turcotte",
+      "label": "Isaac Turcotte",
+      "jobFamily": "Technician",
+      "jobLevel": "T3",
+      "location": "ON",
+      "businessLine": "BL002",
+      "costCentre": "ONAC",
+      "costRegular": 42,
+      "costOT": 63,
+      "sellRates": {
+        "standard": 85,
+        "premium": 110,
+        "discount": 60
+      },
+      "otMultiplier": 1.5,
+      "type": "named"
+    },
+    {
+      "id": "noah-turcotte",
+      "label": "Noah Turcotte",
+      "jobFamily": "Admin",
+      "jobLevel": "S2",
+      "location": "BC",
+      "businessLine": "BL002",
+      "costCentre": "British Columbia",
+      "costRegular": 26,
+      "costOT": 39,
+      "sellRates": {
+        "standard": 52,
+        "premium": 78,
+        "discount": 28
+      },
+      "otMultiplier": 1.5,
+      "type": "named"
+    },
+    {
+      "id": "olivia-turcotte",
+      "label": "Olivia Turcotte",
+      "jobFamily": "Professional",
+      "jobLevel": "P4",
+      "location": "QC",
+      "businessLine": "BL001",
+      "costCentre": "Quebec-GEM",
+      "costRegular": 58,
+      "costOT": 87,
+      "sellRates": {
+        "standard": 115,
+        "premium": 140,
+        "discount": 90
+      },
+      "otMultiplier": 1.5,
+      "type": "named"
+    },
+    {
+      "id": "sophia-turcotte",
+      "label": "Sophia Turcotte",
+      "jobFamily": "Professional",
+      "jobLevel": "P2",
+      "location": "AB",
+      "businessLine": "BL002",
+      "costCentre": "P&N Ground",
+      "costRegular": 48,
+      "costOT": 72,
+      "sellRates": {
+        "standard": 95,
+        "premium": 120,
+        "discount": 70
+      },
+      "otMultiplier": 1.5,
+      "type": "named"
+    }
+  ]
+};
+
 window.JobLevels = (function () {
   // Will be loaded from job-levels.json
   let DEFAULT_LEVELS = [];
@@ -15,19 +436,9 @@ window.JobLevels = (function () {
   async function loadDefaultLevels() {
     if (defaultLevelsLoaded) return;
     
-    try {
-      const response = await fetch("data/job-levels.json");
-      if (response.ok) {
-        const data = await response.json();
-        if (Array.isArray(data)) {
-          DEFAULT_LEVELS = data;
-          console.log("✅ Loaded", DEFAULT_LEVELS.length, "job levels from JSON");
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to load job levels from JSON, using empty defaults", e);
-      DEFAULT_LEVELS = [];
-    }
+    DEFAULT_LEVELS = embeddedJobLevels.levels;
+    defaultLevelsLoaded = true;
+    console.log("✅ Loaded", DEFAULT_LEVELS.length, "job levels from embedded data");
     
     defaultLevelsLoaded = true;
   }
