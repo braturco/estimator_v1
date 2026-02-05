@@ -1,285 +1,42 @@
 // Simple rate lookup from resources.json + named-resources.json
 
-const embeddedResources = {
-  "generic": [
-    {
-      "id": "e1-executive",
-      "label": "Vice President",
-      "jobFamily": "Executive",
-      "jobLevel": "E1",
-      "cost": 120,
-      "sell": 200,
-      "otMultiplier": 1.5,
-      "officeLocation": "Toronto"
-    },
-    {
-      "id": "l3-director",
-      "label": "Director",
-      "jobFamily": "Management",
-      "jobLevel": "L3",
-      "cost": 100,
-      "sell": 170,
-      "otMultiplier": 1.5,
-      "officeLocation": "Montreal"
-    },
-    {
-      "id": "l2-snr-manager",
-      "label": "Snr. Manager",
-      "jobFamily": "Management",
-      "jobLevel": "L2",
-      "cost": 85,
-      "sell": 150,
-      "otMultiplier": 1.5,
-      "officeLocation": "Stormwater"
-    },
-    {
-      "id": "l1-manager",
-      "label": "Manager",
-      "jobFamily": "Management",
-      "jobLevel": "L1",
-      "cost": 70,
-      "sell": 130,
-      "otMultiplier": 1.5,
-      "officeLocation": "Calgary"
-    },
-    {
-      "id": "p8-professional",
-      "label": "Level 8 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P8",
-      "cost": 75,
-      "sell": 140,
-      "otMultiplier": 1.5,
-      "officeLocation": "Edmonton"
-    },
-    {
-      "id": "p7-professional",
-      "label": "Level 7 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P7",
-      "cost": 70,
-      "sell": 135,
-      "otMultiplier": 1.5,
-      "officeLocation": "Ottawa"
-    },
-    {
-      "id": "p6-professional",
-      "label": "Level 6 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P6",
-      "cost": 65,
-      "sell": 130,
-      "otMultiplier": 1.5,
-      "officeLocation": "Halifax"
-    },
-    {
-      "id": "p5-professional",
-      "label": "Level 5 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P5",
-      "cost": 60,
-      "sell": 120,
-      "otMultiplier": 1.5,
-      "officeLocation": "Winnipeg"
-    },
-    {
-      "id": "p4-professional",
-      "label": "Level 4 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P4",
-      "cost": 55,
-      "sell": 110,
-      "otMultiplier": 1.5,
-      "officeLocation": "Victoria"
-    },
-    {
-      "id": "p3-professional",
-      "label": "Level 3 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P3",
-      "cost": 50,
-      "sell": 100,
-      "otMultiplier": 1.5,
-      "officeLocation": "Quebec City"
-    },
-    {
-      "id": "p2-professional",
-      "label": "Level 2 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P2",
-      "cost": 45,
-      "sell": 90,
-      "otMultiplier": 1.5,
-      "officeLocation": "Regina"
-    },
-    {
-      "id": "p1-professional",
-      "label": "Level 1 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P1",
-      "cost": 40,
-      "sell": 80,
-      "otMultiplier": 1.5,
-      "officeLocation": "Saskatoon"
-    },
-    {
-      "id": "p0-professional",
-      "label": "Level 0 Professional",
-      "jobFamily": "Professional",
-      "jobLevel": "P0",
-      "cost": 35,
-      "sell": 70,
-      "otMultiplier": 1.5,
-      "officeLocation": "St. John's"
-    },
-    {
-      "id": "t5-technician",
-      "label": "Level 5 Tech",
-      "jobFamily": "Technician",
-      "jobLevel": "T5",
-      "cost": 50,
-      "sell": 100,
-      "otMultiplier": 1.5,
-      "officeLocation": "Charlottetown"
-    },
-    {
-      "id": "t4-technician",
-      "label": "Level 4 Tech",
-      "jobFamily": "Technician",
-      "jobLevel": "T4",
-      "cost": 45,
-      "sell": 90,
-      "otMultiplier": 1.5,
-      "officeLocation": "Thunder Bay"
-    },
-    {
-      "id": "t3-technician",
-      "label": "Level 3 Tech",
-      "jobFamily": "Technician",
-      "jobLevel": "T3",
-      "cost": 40,
-      "sell": 80,
-      "otMultiplier": 1.5,
-      "officeLocation": "London"
-    },
-    {
-      "id": "t2-technician",
-      "label": "Level 2 Tech",
-      "jobFamily": "Technician",
-      "jobLevel": "T2",
-      "cost": 35,
-      "sell": 70,
-      "otMultiplier": 1.5,
-      "officeLocation": "Windsor"
-    },
-    {
-      "id": "t1-technician",
-      "label": "Level 1 Tech",
-      "jobFamily": "Technician",
-      "jobLevel": "T1",
-      "cost": 30,
-      "sell": 60,
-      "otMultiplier": 1.5,
-      "officeLocation": "Brampton"
-    },
-    {
-      "id": "s4-admin",
-      "label": "Level 4 Admin",
-      "jobFamily": "Admin",
-      "jobLevel": "S4",
-      "cost": 35,
-      "sell": 70,
-      "otMultiplier": 1.5,
-      "officeLocation": "Mississauga"
-    },
-    {
-      "id": "s3-admin",
-      "label": "Level 3 Admin",
-      "jobFamily": "Admin",
-      "jobLevel": "S3",
-      "cost": 30,
-      "sell": 60,
-      "otMultiplier": 1.5,
-      "officeLocation": "Burnaby"
-    },
-    {
-      "id": "s2-admin",
-      "label": "Level 2 Admin",
-      "jobFamily": "Admin",
-      "jobLevel": "S2",
-      "cost": 25,
-      "sell": 50,
-      "otMultiplier": 1.5,
-      "officeLocation": "Red Deer"
-    },
-    {
-      "id": "s1-admin",
-      "label": "Level 1 Admin",
-      "jobFamily": "Admin",
-      "jobLevel": "S1",
-      "cost": 22,
-      "sell": 45,
-      "otMultiplier": 1.5,
-      "officeLocation": "Kamloops"
-    }
-  ],
-  "named": []
-};
-
-const embeddedNamedResources = {
-  "resources": [
-    {
-      "id": "john.smith",
-      "name": "John Smith",
-      "employeeId": "EMP-001",
-      "jobLevel": "Senior Engineer",
-      "businessLine": "Engineering",
-      "costCenter": "CC-100",
-      "manager": "Alice Johnson",
-      "locations": "New York",
-      "jobTitle": "Senior Software Engineer",
-      "businessCardTitle": "Sr. Eng"
-    },
-    {
-      "id": "jane.doe",
-      "name": "Jane Doe",
-      "employeeId": "EMP-002",
-      "jobLevel": "Engineer",
-      "businessLine": "Consulting",
-      "costCenter": "CC-200",
-      "manager": "Bob Smith",
-      "locations": "San Francisco",
-      "jobTitle": "Consulting Engineer",
-      "businessCardTitle": "Consultant"
-    },
-    {
-      "id": "mike.wilson",
-      "name": "Mike Wilson",
-      "employeeId": "EMP-003",
-      "jobLevel": "Technician",
-      "businessLine": "Operations",
-      "costCenter": "CC-300",
-      "manager": "Carol White",
-      "locations": "Chicago",
-      "jobTitle": "Systems Technician",
-      "businessCardTitle": "Tech"
-    }
-  ]
-};
-
 window.Rates = (function () {
   let resources = null;
   let namedResources = null;
 
   async function load() {
     if (resources) return resources;
-    resources = embeddedResources;
+    // Try to load from embedded data first, then fall back to fetch
+    if (typeof embeddedResources !== 'undefined') {
+      resources = embeddedResources;
+    } else {
+      try {
+        const cacheBuster = "?v=" + Date.now();
+        const res = await fetch("data/resources.json" + cacheBuster, { cache: "no-store" });
+        resources = await res.json();
+      } catch (e) {
+        console.warn("Could not load resources.json, using empty data");
+        resources = { generic: [], named: [] };
+      }
+    }
     return resources;
   }
 
   async function loadNamedResources() {
     if (namedResources) return namedResources;
-    namedResources = embeddedNamedResources;
+    // Try embedded data first, then fetch
+    if (typeof embeddedNamedResources !== 'undefined') {
+      namedResources = embeddedNamedResources;
+    } else {
+      try {
+        const cacheBuster = "?v=" + Date.now();
+        const res = await fetch("data/named-resources.json" + cacheBuster, { cache: "no-store" });
+        namedResources = await res.json();
+      } catch (e) {
+        console.warn("Could not load named-resources.json, using empty data");
+        namedResources = { resources: [] };
+      }
+    }
     return namedResources;
   }
 
