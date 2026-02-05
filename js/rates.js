@@ -6,7 +6,21 @@ window.Rates = (function () {
 
   async function load() {
     if (resources) return resources;
-    // Try to load from embedded data first, then fall back to fetch
+    
+    // Check for imported CSV data first
+    const importedKey = "estimator_imported_resources_csv";
+    const importedData = localStorage.getItem(importedKey);
+    if (importedData) {
+      try {
+        const parsed = JSON.parse(importedData);
+        resources = { generic: parsed, named: [] };
+        return resources;
+      } catch (e) {
+        console.warn("Failed to parse imported resources CSV data", e);
+      }
+    }
+    
+    // Try to load from embedded data, then fall back to fetch
     if (typeof embeddedResources !== 'undefined') {
       resources = embeddedResources;
     } else {

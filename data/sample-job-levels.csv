@@ -1,0 +1,23 @@
+code,label,jobFamily,jobLevel,costRate,chargeoutRate
+E1,Vice President,Executive,E1,120,200
+L3,Director,Management,L3,100,170
+L2,Snr. Manager,Management,L2,85,150
+L1,Manager,Management,L1,70,130
+P8,Level 8 Professional,Professional,P8,75,140
+P7,Level 7 Professional,Professional,P7,70,135
+P6,Level 6 Professional,Professional,P6,65,130
+P5,Level 5 Professional,Professional,P5,60,120
+P4,Level 4 Professional,Professional,P4,55,110
+P3,Level 3 Professional,Professional,P3,50,100
+P2,Level 2 Professional,Professional,P2,45,90
+P1,Level 1 Professional,Professional,P1,40,80
+P0,Level 0 Professional,Professional,P0,35,70
+T5,Level 5 Tech,Technician,T5,50,100
+T4,Level 4 Tech,Technician,T4,45,90
+T3,Level 3 Tech,Technician,T3,40,80
+T2,Level 2 Tech,Technician,T2,35,70
+T1,Level 1 Tech,Technician,T1,30,60
+S4,Level 4 Admin,Admin,S4,35,70
+S3,Level 3 Admin,Admin,S3,30,60
+S2,Level 2 Admin,Admin,S2,25,50
+S1,Level 1 Admin,Admin,S1,22,45

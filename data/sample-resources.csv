@@ -1,0 +1,23 @@
+id,label,jobFamily,jobLevel,cost,sell,otMultiplier,officeLocation
+e1-executive,Vice President,Executive,E1,120,200,1.5,Toronto
+l3-director,Director,Management,L3,100,170,1.5,Montreal
+l2-snr-manager,Snr. Manager,Management,L2,85,150,1.5,Stormwater
+l1-manager,Manager,Management,L1,70,130,1.5,Calgary
+p8-professional,Level 8 Professional,Professional,P8,75,140,1.5,Edmonton
+p7-professional,Level 7 Professional,Professional,P7,70,135,1.5,Ottawa
+p6-professional,Level 6 Professional,Professional,P6,65,130,1.5,Halifax
+p5-professional,Level 5 Professional,Professional,P5,60,120,1.5,Winnipeg
+p4-professional,Level 4 Professional,Professional,P4,55,110,1.5,Victoria
+p3-professional,Level 3 Professional,Professional,P3,50,100,1.5,Quebec City
+p2-professional,Level 2 Professional,Professional,P2,45,90,1.5,Regina
+p1-professional,Level 1 Professional,Professional,P1,40,80,1.5,Saskatoon
+p0-professional,Level 0 Professional,Professional,P0,35,70,1.5,St. John's
+t5-technician,Level 5 Tech,Technician,T5,50,100,1.5,Charlottetown
+t4-technician,Level 4 Tech,Technician,T4,45,90,1.5,Thunder Bay
+t3-technician,Level 3 Tech,Technician,T3,40,80,1.5,London
+t2-technician,Level 2 Tech,Technician,T2,35,70,1.5,Windsor
+t1-technician,Level 1 Tech,Technician,T1,30,60,1.5,Brampton
+s4-admin,Level 4 Admin,Admin,S4,35,70,1.5,Mississauga
+s3-admin,Level 3 Admin,Admin,S3,30,60,1.5,Burnaby
+s2-admin,Level 2 Admin,Admin,S2,25,50,1.5,Red Deer
+s1-admin,Level 1 Admin,Admin,S1,22,45,1.5,Kamloops

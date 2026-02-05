@@ -15,6 +15,21 @@ window.JobLevels = (function () {
   async function loadDefaultLevels() {
     if (defaultLevelsLoaded) return;
     
+    // Check for imported CSV data first
+    const importedKey = "estimator_imported_job_levels_csv";
+    const importedData = localStorage.getItem(importedKey);
+    if (importedData) {
+      try {
+        const parsed = JSON.parse(importedData);
+        DEFAULT_LEVELS = parsed;
+        defaultLevelsLoaded = true;
+        console.log("✅ Loaded", DEFAULT_LEVELS.length, "job levels from imported CSV");
+        return;
+      } catch (e) {
+        console.warn("Failed to parse imported job levels CSV data", e);
+      }
+    }
+    
     // Try embedded data first, then fetch
     if (typeof embeddedJobLevels !== 'undefined') {
       DEFAULT_LEVELS = embeddedJobLevels.levels;

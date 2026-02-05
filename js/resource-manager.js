@@ -199,6 +199,130 @@ window.ResourceManager = (function () {
     });
   }
 
+  // Import resources from CSV file
+  function importResourcesFromCsv(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csvText = e.target.result;
+          const resources = parseResourcesCSV(csvText);
+          if (resources.length > 0) {
+            // Save to localStorage as imported resources
+            const key = "estimator_imported_resources_csv";
+            localStorage.setItem(key, JSON.stringify(resources));
+            resolve({ success: true, count: resources.length });
+          } else {
+            resolve({ success: false, error: "No valid resources found in CSV" });
+          }
+        } catch (err) {
+          resolve({ success: false, error: err.message });
+        }
+      };
+      reader.onerror = () => {
+        resolve({ success: false, error: "Failed to read file" });
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // Import job levels from CSV file
+  function importJobLevelsFromCsv(file) {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csvText = e.target.result;
+          const jobLevels = parseJobLevelsCSV(csvText);
+          if (jobLevels.length > 0) {
+            // Save to localStorage as imported job levels
+            const key = "estimator_imported_job_levels_csv";
+            localStorage.setItem(key, JSON.stringify(jobLevels));
+            resolve({ success: true, count: jobLevels.length });
+          } else {
+            resolve({ success: false, error: "No valid job levels found in CSV" });
+          }
+        } catch (err) {
+          resolve({ success: false, error: err.message });
+        }
+      };
+      reader.onerror = () => {
+        resolve({ success: false, error: "Failed to read file" });
+      };
+      reader.readAsText(file);
+    });
+  }
+
+  // Parse resources CSV
+  function parseResourcesCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) return [];
+
+    let headerLine = lines[0].replace(/^\uFEFF/, '').trim();
+    const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+    const expectedHeaders = ['id', 'label', 'jobfamily', 'joblevel', 'cost', 'sell', 'otmultiplier', 'officelocation'];
+
+    const resources = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+
+      const resource = {
+        id: cells[headers.indexOf('id')] || '',
+        label: cells[headers.indexOf('label')] || '',
+        jobFamily: cells[headers.indexOf('jobfamily')] || '',
+        jobLevel: cells[headers.indexOf('joblevel')] || '',
+        cost: parseFloat(cells[headers.indexOf('cost')] || 0),
+        sell: parseFloat(cells[headers.indexOf('sell')] || 0),
+        otMultiplier: parseFloat(cells[headers.indexOf('otmultiplier')] || 1.5),
+        officeLocation: cells[headers.indexOf('officelocation')] || ''
+      };
+
+      if (resource.id && resource.label) {
+        resources.push(resource);
+      }
+    }
+
+    return resources;
+  }
+
+  // Parse job levels CSV
+  function parseJobLevelsCSV(csvText) {
+    const lines = csvText.trim().split('\n');
+    if (lines.length < 2) return [];
+
+    let headerLine = lines[0].replace(/^\uFEFF/, '').trim();
+    const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
+    const expectedHeaders = ['code', 'label', 'jobfamily', 'joblevel', 'costrate', 'chargeoutrate'];
+
+    const jobLevels = [];
+
+    for (let i = 1; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) continue;
+
+      const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
+
+      const jobLevel = {
+        code: cells[headers.indexOf('code')] || '',
+        label: cells[headers.indexOf('label')] || '',
+        jobFamily: cells[headers.indexOf('jobfamily')] || '',
+        jobLevel: cells[headers.indexOf('joblevel')] || '',
+        costRate: parseFloat(cells[headers.indexOf('costrate')] || 0),
+        chargeoutRate: parseFloat(cells[headers.indexOf('chargeoutrate')] || 0)
+      };
+
+      if (jobLevel.code && jobLevel.label) {
+        jobLevels.push(jobLevel);
+      }
+    }
+
+    return jobLevels;
+  }
+
   async function getAllResources() {
     const standardData = await Rates.listResources();
     const custom = getCustomResources();
@@ -359,6 +483,142 @@ window.ResourceManager = (function () {
           const result = await importFromFile(file);
           if (result.success) {
             alert(`Successfully imported ${result.count} employee resources`);
+            renderManager(container.closest(".modal-body"));
+          } else {
+            alert(`Import failed: ${result.error}`);
+          }
+        });
+
+        fileSection.appendChild(fileLabel);
+        fileSection.appendChild(fileInput);
+        container.appendChild(fileSection);
+      },
+      onSave: null,
+      onClose: () => Modal.close()
+    });
+  }
+
+  function showResourcesCsvImportDialog() {
+    Modal.open({
+      title: "Import Resources CSV",
+      content: (container) => {
+        container.innerHTML = "";
+        container.style.padding = "16px";
+        container.style.display = "flex";
+        container.style.flexDirection = "column";
+        container.style.gap = "20px";
+
+        // Instructions
+        const instructions = document.createElement("div");
+        instructions.style.fontSize = "12px";
+        instructions.style.color = "var(--text-muted)";
+        instructions.style.lineHeight = "1.6";
+        instructions.innerHTML = `
+          <strong>Expected CSV Columns:</strong><br>
+          id, label, jobFamily, jobLevel, cost, sell, otMultiplier, officeLocation
+        `;
+        container.appendChild(instructions);
+
+        // File upload section
+        const fileSection = document.createElement("div");
+        fileSection.style.display = "flex";
+        fileSection.style.flexDirection = "column";
+        fileSection.style.gap = "8px";
+
+        const fileLabel = document.createElement("label");
+        fileLabel.textContent = "Upload Resources CSV File";
+        fileLabel.style.fontSize = "12px";
+        fileLabel.style.fontWeight = "600";
+
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = ".csv";
+        fileInput.style.padding = "8px";
+        fileInput.style.border = "1px solid var(--border)";
+        fileInput.style.borderRadius = "4px";
+        fileInput.style.background = "var(--bg)";
+        fileInput.style.color = "var(--text)";
+        fileInput.style.fontSize = "12px";
+
+        fileInput.addEventListener("change", async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const result = await importResourcesFromCsv(file);
+          if (result.success) {
+            alert(`Successfully imported ${result.count} resources`);
+            // Reload resources
+            if (typeof Rates !== 'undefined' && typeof Rates.load === 'function') {
+              await Rates.load();
+            }
+            renderManager(container.closest(".modal-body"));
+          } else {
+            alert(`Import failed: ${result.error}`);
+          }
+        });
+
+        fileSection.appendChild(fileLabel);
+        fileSection.appendChild(fileInput);
+        container.appendChild(fileSection);
+      },
+      onSave: null,
+      onClose: () => Modal.close()
+    });
+  }
+
+  function showJobLevelsCsvImportDialog() {
+    Modal.open({
+      title: "Import Job Levels CSV",
+      content: (container) => {
+        container.innerHTML = "";
+        container.style.padding = "16px";
+        container.style.display = "flex";
+        container.style.flexDirection = "column";
+        container.style.gap = "20px";
+
+        // Instructions
+        const instructions = document.createElement("div");
+        instructions.style.fontSize = "12px";
+        instructions.style.color = "var(--text-muted)";
+        instructions.style.lineHeight = "1.6";
+        instructions.innerHTML = `
+          <strong>Expected CSV Columns:</strong><br>
+          code, label, jobFamily, jobLevel, costRate, chargeoutRate
+        `;
+        container.appendChild(instructions);
+
+        // File upload section
+        const fileSection = document.createElement("div");
+        fileSection.style.display = "flex";
+        fileSection.style.flexDirection = "column";
+        fileSection.style.gap = "8px";
+
+        const fileLabel = document.createElement("label");
+        fileLabel.textContent = "Upload Job Levels CSV File";
+        fileLabel.style.fontSize = "12px";
+        fileLabel.style.fontWeight = "600";
+
+        const fileInput = document.createElement("input");
+        fileInput.type = "file";
+        fileInput.accept = ".csv";
+        fileInput.style.padding = "8px";
+        fileInput.style.border = "1px solid var(--border)";
+        fileInput.style.borderRadius = "4px";
+        fileInput.style.background = "var(--bg)";
+        fileInput.style.color = "var(--text)";
+        fileInput.style.fontSize = "12px";
+
+        fileInput.addEventListener("change", async (e) => {
+          const file = e.target.files[0];
+          if (!file) return;
+
+          const result = await importJobLevelsFromCsv(file);
+          if (result.success) {
+            alert(`Successfully imported ${result.count} job levels`);
+            // Reload job levels
+            if (typeof JobLevels !== 'undefined' && typeof JobLevels.loadDefaultLevels === 'function') {
+              await JobLevels.loadDefaultLevels();
+            }
             renderManager(container.closest(".modal-body"));
           } else {
             alert(`Import failed: ${result.error}`);
@@ -892,8 +1152,24 @@ window.ResourceManager = (function () {
       showEmployeeImportDialog();
     });
 
+    const importResourcesCsvBtn = document.createElement("button");
+    importResourcesCsvBtn.className = "btn btn-secondary";
+    importResourcesCsvBtn.textContent = "📄 Import Resources CSV";
+    importResourcesCsvBtn.addEventListener("click", () => {
+      showResourcesCsvImportDialog();
+    });
+
+    const importJobLevelsCsvBtn = document.createElement("button");
+    importJobLevelsCsvBtn.className = "btn btn-secondary";
+    importJobLevelsCsvBtn.textContent = "📋 Import Job Levels CSV";
+    importJobLevelsCsvBtn.addEventListener("click", () => {
+      showJobLevelsCsvImportDialog();
+    });
+
     toolbar.appendChild(rateScheduleBtn);
     toolbar.appendChild(importEmployeesBtn);
+    toolbar.appendChild(importResourcesCsvBtn);
+    toolbar.appendChild(importJobLevelsCsvBtn);
     container.appendChild(toolbar);
 
     console.log("✅ Resource Manager toolbar appended with buttons:", toolbar.children.length);
