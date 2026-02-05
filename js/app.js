@@ -17,6 +17,7 @@ window.addEventListener("DOMContentLoaded", () => {
   wireSetupButtons();
   wireThemeToggle();
   renderWBS();
+  setupSidebarToggle();
   
   // Trigger initial calculations (this will update the rendered cells)
   if (window.Calculations && window.Calculations.recalculate) {
@@ -26,12 +27,6 @@ window.addEventListener("DOMContentLoaded", () => {
       console.error("❌ Initial calculation failed:", err);
     });
   }
-  
-  console.log("✅ About to call setupSidebarToggle");
-  setTimeout(() => {
-    console.log("✅ Calling setupSidebarToggle now");
-    setupSidebarToggle();
-  }, 0);
 
   if (!document.body._expenseClickHandlerAttached) {
     document.addEventListener("click", (e) => {

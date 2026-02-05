@@ -16,7 +16,7 @@ body {
   flex: 1;
   overflow: hidden;
   transition: margin-left 0.25s ease-out;
-  margin-left: 320px; /* Temporarily adjusted for testing */
+  margin-left: 0; /* Closed by default */
 }
 
 .main-container.sidebar-open {
@@ -87,7 +87,7 @@ body {
 
 .sidebar {
   position: fixed;
-  left: 0; /* Temporarily open for testing */
+  left: -320px; /* Hidden by default */
   top: 0;
   width: 320px;
   height: 100vh;
@@ -125,7 +125,7 @@ body {
 .sidebar-overlay.open {
   background: rgba(0, 0, 0, 0.3);
   opacity: 1;
-  pointer-events: none;
+  pointer-events: auto;
 }
 
 .sidebar-header {
