@@ -1816,7 +1816,7 @@ function renderWBS() {
             function renderList(filter = "") {
               listContainer.innerHTML = "";
               const filtered = allOptions.filter(r => 
-                r.label.toLowerCase().includes(filter.toLowerCase())
+                (r.label || r.name || '').toLowerCase().includes(filter.toLowerCase())
               );
               
               if (filtered.length === 0) {
@@ -1835,14 +1835,14 @@ function renderWBS() {
                 // Show job level/code if available (e.g., "E1 - Vice President" or "P5 - John Doe")
                 const jobLevelOrCode = resource.jobLevel || resource.jobCode;
                 const displayName = jobLevelOrCode
-                  ? `${jobLevelOrCode} - ${resource.label}`
-                  : resource.label;
+                  ? `${jobLevelOrCode} - ${resource.label || resource.name}`
+                  : (resource.label || resource.name);
                 name.textContent = displayName;
                 name.style.fontWeight = "500";
                 name.style.fontSize = "13px";
                 
                 const details = document.createElement("div");
-                details.textContent = `${resource.type === "generic" ? "Generic" : "Named"} • Cost: $${resource.cost}/hr • Sell: $${resource.sell}/hr`;
+                details.textContent = `${resource.type === "generic" ? "Generic" : "Named"} • Cost: $${resource.cost || 'N/A'}/hr • Sell: $${resource.sell || 'N/A'}/hr`;
                 details.style.fontSize = "11px";
                 details.style.color = "var(--text-muted)";
                 details.style.marginTop = "2px";
@@ -1862,10 +1862,10 @@ function renderWBS() {
                   // Update the resource
                   laborResources[resourceIndex] = {
                     ...laborResources[resourceIndex],
-                    name: resource.label,
+                    name: resource.label || resource.name,
                     resourceId: resource.id,
-                    chargeoutRate: resource.sell,
-                    costRate: resource.cost
+                    chargeoutRate: resource.sell || 0,
+                    costRate: resource.cost || 0
                   };
                   renderWBS();
                   Modal.close();
@@ -2237,7 +2237,7 @@ function wireTopButtons() {
           function renderList(filter = "") {
             listContainer.innerHTML = "";
             const filtered = allOptions.filter(r => 
-              r.label.toLowerCase().includes(filter.toLowerCase())
+              (r.label || r.name || '').toLowerCase().includes(filter.toLowerCase())
             );
             
             if (filtered.length === 0) {
@@ -2256,14 +2256,14 @@ function wireTopButtons() {
               // Show job level/code if available (e.g., "E1 - Vice President" or "P5 - John Doe")
               const jobLevelOrCode = resource.jobLevel || resource.jobCode;
               const displayName = jobLevelOrCode
-                ? `${jobLevelOrCode} - ${resource.label}`
-                : resource.label;
+                ? `${jobLevelOrCode} - ${resource.label || resource.name}`
+                : (resource.label || resource.name);
               name.textContent = displayName;
               name.style.fontWeight = "500";
               name.style.fontSize = "13px";
               
               const details = document.createElement("div");
-              details.textContent = `${resource.type === "generic" ? "Generic" : "Named"} • Cost: $${resource.cost}/hr • Sell: $${resource.sell}/hr`;
+              details.textContent = `${resource.type === "generic" ? "Generic" : "Named"} • Cost: $${resource.cost || 'N/A'}/hr • Sell: $${resource.sell || 'N/A'}/hr`;
               details.style.fontSize = "11px";
               details.style.color = "var(--text-muted)";
               details.style.marginTop = "2px";
@@ -2283,10 +2283,10 @@ function wireTopButtons() {
                 // Add the selected resource to laborResources
                 laborResources.push({
                   id: crypto.randomUUID(),
-                  name: resource.label,
+                  name: resource.label || resource.name,
                   resourceId: resource.id,
-                  chargeoutRate: resource.sell,
-                  costRate: resource.cost
+                  chargeoutRate: resource.sell || 0,
+                  costRate: resource.cost || 0
                 });
                 renderWBS();
                 Modal.close();
