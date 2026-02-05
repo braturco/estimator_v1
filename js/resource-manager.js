@@ -920,7 +920,7 @@ window.ResourceManager = (function () {
             // Create primary header row (category names)
             const headerRowPrimary = document.createElement("div");
             headerRowPrimary.style.display = "grid";
-            headerRowPrimary.style.gridTemplateColumns = `280px ${"1fr ".repeat(2 + rateColumns.length * 2).trim()}`;
+            headerRowPrimary.style.gridTemplateColumns = `120px 160px ${"1fr ".repeat(2 + rateColumns.length * 2).trim()}`;
             headerRowPrimary.style.gap = "0";
             headerRowPrimary.style.alignItems = "center";
             headerRowPrimary.style.background = "var(--bg)";
@@ -933,18 +933,25 @@ window.ResourceManager = (function () {
             headerRowPrimary.style.zIndex = "11";
             headerRowPrimary.style.borderBottom = "1px solid var(--border)";
 
-            // Job Level column header
-            const jobLevelHeaderPrimary = document.createElement("div");
-            jobLevelHeaderPrimary.textContent = "Job Level";
-            jobLevelHeaderPrimary.style.gridColumn = "1";
-            jobLevelHeaderPrimary.style.textAlign = "left";
-            headerRowPrimary.appendChild(jobLevelHeaderPrimary);
+            // Job Level Code column header
+            const jobLevelCodeHeader = document.createElement("div");
+            jobLevelCodeHeader.textContent = "Code";
+            jobLevelCodeHeader.style.gridColumn = "1";
+            jobLevelCodeHeader.style.textAlign = "left";
+            headerRowPrimary.appendChild(jobLevelCodeHeader);
+
+            // Job Level Name column header
+            const jobLevelNameHeader = document.createElement("div");
+            jobLevelNameHeader.textContent = "Name";
+            jobLevelNameHeader.style.gridColumn = "2";
+            jobLevelNameHeader.style.textAlign = "left";
+            headerRowPrimary.appendChild(jobLevelNameHeader);
 
             // Cost header
             const costHeader = document.createElement("div");
             costHeader.textContent = "Cost";
             costHeader.style.textAlign = "center";
-            costHeader.style.gridColumn = "2 / span 2";
+            costHeader.style.gridColumn = "3 / span 2";
             headerRowPrimary.appendChild(costHeader);
 
             // Add rate column headers
@@ -952,7 +959,7 @@ window.ResourceManager = (function () {
               const sellHeader = document.createElement("div");
               sellHeader.textContent = col.label;
               sellHeader.style.textAlign = "center";
-              sellHeader.style.gridColumn = `${3 + idx * 2} / span 2`;
+              sellHeader.style.gridColumn = `${5 + idx * 2} / span 2`;
               headerRowPrimary.appendChild(sellHeader);
             });
 
@@ -965,20 +972,28 @@ window.ResourceManager = (function () {
 
               const dataRow = document.createElement("div");
               dataRow.style.display = "grid";
-              dataRow.style.gridTemplateColumns = `280px ${"1fr ".repeat(2 + rateColumns.length * 2).trim()}`;
+              dataRow.style.gridTemplateColumns = `120px 160px ${"1fr ".repeat(2 + rateColumns.length * 2).trim()}`;
               dataRow.style.gap = "0";
               dataRow.style.alignItems = "center";
               dataRow.style.padding = "4px 6px";
               dataRow.style.borderBottom = "1px solid var(--border-muted)";
               dataRow.style.background = "var(--bg-panel)";
 
-              // Job Level cell
-              const levelCell = document.createElement("div");
-              levelCell.textContent = `${rateCode} - ${levelLabel}`;
-              levelCell.style.fontSize = "12px";
-              levelCell.style.fontWeight = "500";
-              levelCell.style.color = "var(--text)";
-              dataRow.appendChild(levelCell);
+              // Job Level Code cell
+              const codeCell = document.createElement("div");
+              codeCell.textContent = rateCode;
+              codeCell.style.fontSize = "12px";
+              codeCell.style.fontWeight = "500";
+              codeCell.style.color = "var(--text)";
+              dataRow.appendChild(codeCell);
+
+              // Job Level Name cell
+              const nameCell = document.createElement("div");
+              nameCell.textContent = levelLabel;
+              nameCell.style.fontSize = "12px";
+              nameCell.style.fontWeight = "500";
+              nameCell.style.color = "var(--text)";
+              dataRow.appendChild(nameCell);
 
               // Cost Regular input
               const costRegInput = document.createElement("input");
