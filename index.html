@@ -65,8 +65,8 @@
         <div class="sidebar-section">
           <h3>File</h3>
           <div class="palette" style="flex-direction: column; align-items: stretch; gap: 8px;">
-            <button id="exportEstimateBtn" class="btn btn-primary">💾 Export Estimate</button>
-            <button id="importEstimateBtn" class="btn btn-secondary">📂 Import Estimate</button>
+            <button id="exportEstimateBtn" class="btn btn-primary">💾 Export JSON</button>
+            <button id="importEstimateBtn" class="btn btn-secondary">📂 Import JSON</button>
             <button id="exportOracleCSVBtn" class="btn btn-secondary">📋 Export Oracle CSV</button>
           </div>
         </div>
@@ -120,9 +120,6 @@
     </div>
   </div>
 
-  <!-- JSZip for export/import -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-
   <!-- JS -->
   <script src="js/datastore.js?v=9"></script>
   <script src="js/job-levels.js?v=2"></script>
@@ -141,6 +138,9 @@
   <script src="js/oracle-export.js?v=7"></script>
   <script src="js/oracle-export.js?v=1"></script>
 
+  <script src="js/modal.js?v=3"></script>
+  <script src="js/rate-schedule-manager.js?v=1"></script>
+
   <script src="js/form-labor-ttm.js?v=5"></script>
   <script src="js/labor-matrix.js?v=4"></script>
   <script src="js/labor-expansion.js?v=3"></script>
@@ -148,8 +148,12 @@
   <script src="js/dragdrop.js?v=3"></script>
 	<script src="js/columnResize.js?v=3"></script>
   <script src="js/wbs.js?v=54"></script>
-  <script src="js/modal.js?v=3"></script>
   <script src="js/business-org-manager.js?v=1"></script>
   <script src="js/app.js?v=8"></script>
+  <script>
+    console.log("Page loaded, all scripts should be loaded now");
+    console.log("RateScheduleManager:", window.RateScheduleManager);
+    console.log("Modal:", window.Modal);
+  </script>
 </body>
 </html>

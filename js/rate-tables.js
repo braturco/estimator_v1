@@ -31,31 +31,11 @@ window.RateTables = (function () {
   const CUSTOM_TABLES_KEY = "estimator_custom_rate_tables_v1";
   const FACTORY_TABLES_KEY = "estimator_factory_rate_tables_v1";
 
-  // On first load, import all tables from JSON if not present in localStorage
+  // On first load, ensure localStorage is initialized (no longer import from JSON)
   async function ensureTablesInitialized() {
-    const existing = localStorage.getItem(CUSTOM_TABLES_KEY);
-    if (!existing) {
-      try {
-        const response = await fetch("data/rate-tables.json");
-        if (response.ok) {
-          const data = await response.json();
-          if (data.tables && Array.isArray(data.tables)) {
-            // Remove 'type' property and set all as editable
-            const editableTables = data.tables.map(tbl => {
-              const t = { ...tbl };
-              delete t.type;
-              return t;
-            });
-            localStorage.setItem(CUSTOM_TABLES_KEY, JSON.stringify(editableTables));
-            // Optionally store a factory backup for reset
-            localStorage.setItem(FACTORY_TABLES_KEY, JSON.stringify(editableTables));
-            console.log("✅ Imported factory rate tables into localStorage");
-          }
-        }
-      } catch (e) {
-        console.warn("Failed to import rate tables from JSON", e);
-      }
-    }
+    // Clear any factory tables (dummy data should be removed)
+    localStorage.removeItem(FACTORY_TABLES_KEY);
+    // No longer force clearing custom tables - cleanup is handled in rate-schedule-manager.js
   }
 
 
@@ -82,7 +62,19 @@ window.RateTables = (function () {
 
   async function getAllTables() {
     await ensureTablesInitialized();
-    return getCustomTables();
+    const customTables = getCustomTables();
+    const importedTables = (window.RateTablesManager && window.RateTablesManager.getImportedRateTables) ?
+      window.RateTablesManager.getImportedRateTables() : [];
+
+    // Merge: Imported tables take priority over custom tables
+    const allTables = [...importedTables, ...customTables];
+
+    // Remove duplicates by ID (imported takes precedence)
+    const uniqueTables = allTables.filter((table, index, self) =>
+      index === self.findIndex(t => t.id === table.id)
+    );
+
+    return uniqueTables;
   }
 
 
@@ -168,27 +160,17 @@ window.RateTables = (function () {
     return tables[idx];
   }
 
-  // Optional: Add a reset function to restore factory tables
-  function resetToFactoryDefaults() {
-    const raw = localStorage.getItem(FACTORY_TABLES_KEY);
-    if (raw) {
-      localStorage.setItem(CUSTOM_TABLES_KEY, raw);
-      return true;
-    }
-    return false;
-  }
-
   return {
     getCustomTables,
     getAllTables,
+    ensureTablesInitialized,
     getTableById,
     addCustomTable,
     updateCustomTable,
     deleteCustomTable,
     setCostRates,
     setSellRates,
-    updateTableRates,
-    resetToFactoryDefaults
+    updateTableRates
   };
 })();
 

@@ -77,7 +77,8 @@ window.JobLevels = (function () {
 
   async function getAllLevels() {
     await loadDefaultLevels();
-    const allLevels = [...getDefaultLevels(), ...getCustomLevels()];
+    // Priority: Custom levels first (including imported), then defaults
+    const allLevels = [...getCustomLevels(), ...getDefaultLevels()];
     const order = getLevelOrder();
 
     if (!order || !Array.isArray(order) || order.length === 0) {

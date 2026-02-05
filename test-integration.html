@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rate Tables Integration Test</title>
+</head>
+<body>
+    <h1>Rate Tables Integration Test</h1>
+    <div id="output"></div>
+
+    <script src="js/datastore.js"></script>
+    <script src="js/rate-tables.js"></script>
+    <script src="js/rate-tables-manager.js"></script>
+    <script src="js/rates.js"></script>
+
+    <script>
+        // Clear any existing imported rates first
+        localStorage.removeItem('estimator_imported_rate_tables_v1');
+
+        // Test with a resource that has jobLevel "P5" and location "NB"
+        // First, test without imported rates
+        window.Rates.getRates('p5-professional').then(defaultRates => {
+            console.log('Default rates for p5-professional (no import):', defaultRates);
+
+            // Now add imported rate tables with jobLevelCode "P5"
+            const testRateTables = [
+                { id: 'rate-1', costRateId: 'P5', costRate: 50.00, type: 'costRate' },
+                { id: 'rate-2', costRateId: 'P6', costRate: 55.00, type: 'costRate' }
+            ];
+
+            // Save to localStorage (simulate import)
+            localStorage.setItem('estimator_imported_rate_tables_v1', JSON.stringify(testRateTables));
+
+            // Test again with imported rates
+            window.Rates.getRates('p5-professional').then(importedRates => {
+                console.log('Imported rates for p5-professional:', importedRates);
+
+                // Test with P6 resource
+                window.Rates.getRates('p6-professional').then(rates2 => {
+                    console.log('Rates for p6-professional:', rates2);
+
+                    // Output results
+                    const output = document.getElementById('output');
+                    output.innerHTML = `
+                        <h2>Test Results</h2>
+                        <p><strong>Default rates (no import):</strong> P5 Cost Reg: $${defaultRates ? defaultRates.costRegular : 'N/A'}</p>
+                        <p><strong>With imported rates:</strong> P5 Cost Reg: $${importedRates ? importedRates.costRegular : 'N/A'}, P6 Cost Reg: $${rates2 ? rates2.costRegular : 'N/A'}</p>
+                        <p><strong>Expected:</strong> Imported rates should override defaults ($50 for P5, $55 for P6)</p>
+                        <p><strong>Success:</strong> ${importedRates && importedRates.costRegular === 50 && rates2 && rates2.costRegular === 55 ? '✅ YES' : '❌ NO'}</p>
+                    `;
+                });
+            });
+        });
+    </script>
+</body>
+</html>

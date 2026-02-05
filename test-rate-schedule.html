@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Rate Schedule Manager Test</title>
+</head>
+<body>
+    <h1>Rate Schedule Manager Test</h1>
+    <button id="testBtn">Test Rate Schedule Manager</button>
+    <div id="output"></div>
+
+    <script src="js/datastore.js"></script>
+    <script src="js/modal.js"></script>
+    <script src="js/rate-tables.js"></script>
+    <script src="js/rate-schedule-manager.js"></script>
+    <script>
+        const output = document.getElementById('output');
+        const testBtn = document.getElementById('testBtn');
+
+        // Check if RateScheduleManager loaded
+        window.addEventListener('load', () => {
+            output.innerHTML += '<p>Page loaded</p>';
+            if (window.RateScheduleManager) {
+                output.innerHTML += '<p>✅ RateScheduleManager is available</p>';
+                if (typeof window.RateScheduleManager.openManager === 'function') {
+                    output.innerHTML += '<p>✅ openManager function is available</p>';
+                } else {
+                    output.innerHTML += '<p>❌ openManager function is missing</p>';
+                }
+            } else {
+                output.innerHTML += '<p>❌ RateScheduleManager is not available</p>';
+            }
+
+            if (window.Modal) {
+                output.innerHTML += '<p>✅ Modal is available</p>';
+            } else {
+                output.innerHTML += '<p>❌ Modal is not available</p>';
+            }
+        });
+
+        testBtn.addEventListener('click', () => {
+            output.innerHTML += '<p>Button clicked</p>';
+            if (window.RateScheduleManager && typeof window.RateScheduleManager.openManager === 'function') {
+                try {
+                    window.RateScheduleManager.openManager();
+                    output.innerHTML += '<p>✅ openManager called successfully</p>';
+                } catch (error) {
+                    output.innerHTML += '<p>❌ Error calling openManager: ' + error.message + '</p>';
+                }
+            } else {
+                output.innerHTML += '<p>❌ Cannot call openManager - not available</p>';
+            }
+        });
+    </script>
+</body>
+</html>

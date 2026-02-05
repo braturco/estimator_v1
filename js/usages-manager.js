@@ -23,24 +23,21 @@ window.UsagesManager = (function () {
     }
   }
 
-  // Parse usage CSV
+  // Parse usage CSV - updated to handle non_labour_rates.csv format
   function parseUsageCSV(csvText) {
     const lines = csvText.trim().split('\n');
     if (lines.length < 2) return [];
 
-    const headers = lines[0].split(',').map(h => h.trim());
-    const usages = [];
+    const headers = lines[0].split(',').map(h => h.trim().toLowerCase());
+    
+    // Expected headers for non_labour_rates.csv: nlr_code, nl_resource_name, unit, rate, type
+    const codeIdx = headers.findIndex(h => h === 'nlr_code');
+    const nameIdx = headers.findIndex(h => h === 'nl_resource_name');
+    const unitIdx = headers.findIndex(h => h === 'unit');
+    const rateIdx = headers.findIndex(h => h === 'rate');
+    const typeIdx = headers.findIndex(h => h === 'type');
 
-    // Expected headers: From Date, To Date, Expenditure Type, NonLabour Resource, NonLabour Resource Organization, Rate Requirement, Unit of Measure, Rate, Markup Percent
-    const fromDateIdx = headers.findIndex(h => h.toLowerCase() === 'from date');
-    const toDateIdx = headers.findIndex(h => h.toLowerCase() === 'to date');
-    const expTypeIdx = headers.findIndex(h => h.toLowerCase() === 'expenditure type');
-    const resourceIdx = headers.findIndex(h => h.toLowerCase() === 'nonlabour resource');
-    const orgIdx = headers.findIndex(h => h.toLowerCase() === 'nonlabour resource organization');
-    const rateReqIdx = headers.findIndex(h => h.toLowerCase() === 'rate requirement');
-    const uomIdx = headers.findIndex(h => h.toLowerCase() === 'unit of measure');
-    const rateIdx = headers.findIndex(h => h.toLowerCase() === 'rate');
-    const markupIdx = headers.findIndex(h => h.toLowerCase() === 'markup percent');
+    const usages = [];
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -48,29 +45,21 @@ window.UsagesManager = (function () {
 
       const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
 
-      const fromDate = fromDateIdx >= 0 ? cells[fromDateIdx] : '';
-      const toDate = toDateIdx >= 0 ? cells[toDateIdx] : '';
-      const expType = expTypeIdx >= 0 ? cells[expTypeIdx] : '';
-      const resource = resourceIdx >= 0 ? cells[resourceIdx] : '';
-      const org = orgIdx >= 0 ? cells[orgIdx] : '';
-      const rateReq = rateReqIdx >= 0 ? cells[rateReqIdx] : '';
-      const uom = uomIdx >= 0 ? cells[uomIdx] : '';
+      const code = codeIdx >= 0 ? cells[codeIdx] : '';
+      const name = nameIdx >= 0 ? cells[nameIdx] : '';
+      const unit = unitIdx >= 0 ? cells[unitIdx] : '';
       const rate = rateIdx >= 0 ? parseFloat(cells[rateIdx]) || 0 : 0;
-      const markup = markupIdx >= 0 ? parseFloat(cells[markupIdx]) || 0 : 0;
+      const type = typeIdx >= 0 ? cells[typeIdx] : '';
 
-      if (!resource) continue;
+      if (!name && !code) continue;
 
       usages.push({
         id: `usage-${crypto.randomUUID()}`,
-        fromDate,
-        toDate,
-        expenditureType: expType,
-        resource,
-        organization: org,
-        rateRequirement: rateReq,
-        unitOfMeasure: uom,
+        code,
+        name,
+        unit,
         rate,
-        markupPercent: markup,
+        type,
         type: "usage"
       });
     }
@@ -139,8 +128,7 @@ window.UsagesManager = (function () {
         instructions.style.lineHeight = "1.6";
         instructions.innerHTML = `
           <strong>Expected CSV Columns:</strong><br>
-          From Date, To Date, Expenditure Type, NonLabour Resource, NonLabour Resource Organization,
-          Rate Requirement, Unit of Measure, Rate, Markup Percent
+          NLR_Code, NL_Resource_Name, Unit, Rate, Type
         `;
         container.appendChild(instructions);
 
@@ -327,7 +315,7 @@ window.UsagesManager = (function () {
       thead.style.zIndex = "1";
       
       const headerRow = document.createElement("tr");
-      const headers = ["Resource", "Organization", "Exp. Type", "UOM", "Rate", "Markup %", "From Date", "To Date"];
+      const headers = ["Code", "Resource Name", "Unit", "Rate", "Type"];
       headers.forEach(headerText => {
         const th = document.createElement("th");
         th.textContent = headerText;
@@ -352,14 +340,11 @@ window.UsagesManager = (function () {
         }
 
         const cells = [
-          usage.resource || "",
-          usage.organization || "",
-          usage.expenditureType || "",
-          usage.unitOfMeasure || "",
+          usage.code || "",
+          usage.name || "",
+          usage.unit || "",
           usage.rate ? `$${usage.rate.toFixed(2)}` : "",
-          usage.markupPercent ? `${usage.markupPercent}%` : "",
-          usage.fromDate || "",
-          usage.toDate || ""
+          usage.type || ""
         ];
 
         cells.forEach(cellText => {

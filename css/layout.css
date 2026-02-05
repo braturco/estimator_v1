@@ -16,6 +16,7 @@ body {
   flex: 1;
   overflow: hidden;
   transition: margin-left 0.25s ease-out;
+  margin-left: 320px; /* Temporarily adjusted for testing */
 }
 
 .main-container.sidebar-open {
@@ -86,7 +87,7 @@ body {
 
 .sidebar {
   position: fixed;
-  left: -320px;
+  left: 0; /* Temporarily open for testing */
   top: 0;
   width: 320px;
   height: 100vh;

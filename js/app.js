@@ -128,6 +128,7 @@ window.renderPalettes = function () {
 
 // Setup section buttons (sidebar)
 window.wireSetupButtons = function () {
+    console.log("wireSetupButtons called");
     // DEBUG: Check ResourceManager after all scripts load
     setTimeout(() => {
       if (!window.ResourceManager) {
@@ -148,11 +149,21 @@ window.wireSetupButtons = function () {
   const businessOrgBtn = document.getElementById("setupBusinessOrgBtn");
 
   if (rateBtn) {
+    console.log("Attaching onclick handler to Rate Schedule button");
     rateBtn.onclick = () => {
-      if (window.ResourceManager && typeof ResourceManager.openRateScheduleManager === "function") {
-        ResourceManager.openRateScheduleManager();
+      console.log("Rate Schedule button clicked");
+      console.log("RateScheduleManager available:", window.RateScheduleManager);
+      console.log("Modal available:", window.Modal);
+      if (window.RateScheduleManager && typeof window.RateScheduleManager.openManager === "function") {
+        console.log("Opening RateScheduleManager");
+        window.RateScheduleManager.openManager();
+      } else {
+        console.error("RateScheduleManager not available or missing openManager function");
+        alert("Rate Schedule Manager is not available. Check the console for errors.");
       }
     };
+  } else {
+    console.error("Rate Schedule button not found!");
   }
 
   if (resourcesBtn) {

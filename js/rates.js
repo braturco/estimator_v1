@@ -82,8 +82,19 @@ window.Rates = (function () {
 
       // Extract cost and sell rates from the entry structure
       // Structure: { cost: { reg: X, ot: Y }, standard: { reg: X, ot: Y }, ... }
-      const costReg = rateEntry.cost?.reg || 60;
-      const costOt = rateEntry.cost?.ot || (costReg * 1.5);
+      let costReg = rateEntry.cost?.reg || 60;
+      let costOt = rateEntry.cost?.ot || (costReg * 1.5);
+      
+      // Check for imported cost rate overrides
+      if (window.RateTablesManager && window.RateTablesManager.getImportedRateTables) {
+        const importedRates = window.RateTablesManager.getImportedRateTables();
+        const overrideRate = importedRates.find(r => r.costRateId === jobLevelCode);
+        if (overrideRate && overrideRate.costRate > 0) {
+          costReg = overrideRate.costRate;
+          costOt = costReg * 1.5; // Apply standard OT multiplier
+          console.log(`✅ Using imported cost rate for ${jobLevelCode}: $${costReg}/hr`);
+        }
+      }
       
       // Use "standard" tier for sell rates by default
       const sellReg = rateEntry.standard?.reg || 120;
@@ -181,15 +192,20 @@ window.Rates = (function () {
     const data = await load();
     const custom = ResourceManager.getCustomResources();
     const importedNamed = ResourceManager.getImportedNamedResources();
-    
-    // Merge named resources from resources.json with imported employees
+
+    // Priority: Imported CSV data first, then JSON defaults
     const allNamed = [
-      ...(data.named || []),
-      ...importedNamed
+      ...importedNamed,  // CSV data takes priority
+      ...(data.named || [])  // JSON fallback
     ];
-    
+
+    // If we have imported data, use it for generic too, otherwise use JSON
+    const generic = importedNamed.length > 0 ?
+      importedNamed.filter(r => r.type === 'generic') :
+      (data.generic || []);
+
     return {
-      generic: data.generic || [],
+      generic: generic,
       named: allNamed,
       custom: custom || []
     };
