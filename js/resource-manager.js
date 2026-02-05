@@ -296,7 +296,15 @@ window.ResourceManager = (function () {
 
     let headerLine = lines[0].replace(/^\uFEFF/, '').trim();
     const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
-    const expectedHeaders = ['code', 'label', 'jobfamily', 'joblevel', 'costrate', 'chargeoutrate'];
+
+    // Helper function to find header index with flexible matching
+    function findHeaderIndex(expectedNames) {
+      for (const expected of expectedNames) {
+        const index = headers.findIndex(h => h.includes(expected.toLowerCase()));
+        if (index !== -1) return index;
+      }
+      return -1;
+    }
 
     const jobLevels = [];
 
@@ -307,12 +315,12 @@ window.ResourceManager = (function () {
       const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
 
       const jobLevel = {
-        code: cells[headers.indexOf('code')] || '',
-        label: cells[headers.indexOf('label')] || '',
-        jobFamily: cells[headers.indexOf('jobfamily')] || '',
-        jobLevel: cells[headers.indexOf('joblevel')] || '',
-        costRate: parseFloat(cells[headers.indexOf('costrate')] || 0),
-        chargeoutRate: parseFloat(cells[headers.indexOf('chargeoutrate')] || 0)
+        code: cells[findHeaderIndex(['code', 'job lvl code'])] || '',
+        label: cells[findHeaderIndex(['label', 'name', 'job lvl name'])] || '',
+        jobFamily: cells[findHeaderIndex(['jobfamily', 'job family'])] || '',
+        jobLevel: cells[findHeaderIndex(['joblevel', 'job level'])] || '',
+        costRate: parseFloat(cells[findHeaderIndex(['costrate', 'cost rate', 'cost'])] || 0),
+        chargeoutRate: parseFloat(cells[findHeaderIndex(['chargeoutrate', 'chargeout rate', 'sell', 'chargeout'])] || 0)
       };
 
       if (jobLevel.code && jobLevel.label) {
