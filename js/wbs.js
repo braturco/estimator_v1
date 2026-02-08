@@ -9,6 +9,39 @@ let selectedNodeId = null;
 let selectedActivityNodeId = null; // Track which node owns the selected activity
 let selectedActivityId = null; // Track specific activity ID
 let financialColumns = [];
+let currentDrag = null; // Track currently dragged activity {activityId, sourceNodeId}
+
+// Look up sell rates from a rate schedule by rateScheduleId + jobLevel
+// Returns { reg, ot } from the "standard" sell column, or null
+function lookupSellRateFromSchedule(rateScheduleId, jobLevel) {
+  if (!rateScheduleId || !jobLevel) return null;
+  try {
+    const tables = RateTables.getCustomTables();
+    const table = tables.find(t => t.id === rateScheduleId);
+    if (!table || !table.rates) return null;
+    const entry = table.rates[jobLevel];
+    if (!entry || !entry.standard) return null;
+    const reg = parseFloat(entry.standard.reg) || 0;
+    const ot = parseFloat(entry.standard.ot) || 0;
+    if (reg > 0 || ot > 0) return { reg, ot };
+  } catch (e) { /* ignore */ }
+  return null;
+}
+
+// Look up cost rate from imported cost rates table by CostRate_ID (e.g., "ONP6")
+function lookupCostRateByCostRateId(costRateId) {
+  if (!costRateId) return null;
+  try {
+    const raw = localStorage.getItem("estimator_imported_rate_tables_v1");
+    if (!raw) return null;
+    const rateTables = JSON.parse(raw);
+    const match = rateTables.find(rt => rt.costRateId && rt.costRateId.toUpperCase() === costRateId.toUpperCase());
+    if (match && match.costRate > 0) {
+      return parseFloat(match.costRate);
+    }
+  } catch (e) { /* ignore parse errors */ }
+  return null;
+}
 
 function getExpenseItems(nodeId, type, activityId) {
   // If activity ID is provided, get from activity; otherwise sum from all activities
@@ -224,6 +257,315 @@ window.openExpenseDetails = openExpenseDetails;
 
 window.openExpenseDetails = openExpenseDetails;
 
+// ---------------------- unit details (per activity) ----------------------
+
+function getUnitItems(nodeId, activityId) {
+  const entry = laborActivities[nodeId];
+  if (!entry || !Array.isArray(entry.activities)) return [];
+
+  if (activityId) {
+    const activity = entry.activities.find(a => a.id === activityId);
+    return (activity && activity.unitItems) ? activity.unitItems : [];
+  } else {
+    let allItems = [];
+    entry.activities.forEach(activity => {
+      if (activity.unitItems) {
+        allItems = allItems.concat(activity.unitItems);
+      }
+    });
+    return allItems;
+  }
+}
+
+function updateUnitTotals(nodeId) {
+  const node = findNodeById(WBS_DATA, nodeId);
+  if (!node) return;
+
+  let totalCost = 0;
+  let totalSell = 0;
+
+  const entry = laborActivities[nodeId];
+  if (entry && Array.isArray(entry.activities)) {
+    entry.activities.forEach(activity => {
+      if (activity.unitItems) {
+        activity.unitItems.forEach(item => {
+          totalCost += Number(item.totalCost || 0);
+          totalSell += Number(item.totalSell || 0);
+        });
+      }
+    });
+  }
+
+  node.unitsCost = totalCost;
+  node.unitsSell = totalSell;
+
+  if (window.Calculations && window.Calculations.recalculate) {
+    window.Calculations.recalculate();
+  }
+}
+
+function openUnitDetails(nodeId, activityId) {
+  const node = findNodeById(WBS_DATA, nodeId);
+  if (!node) return;
+
+  if (!window.Modal || typeof Modal.open !== "function") {
+    alert("Modal system is not available.");
+    return;
+  }
+
+  const entry = laborActivities[nodeId];
+  if (!entry || !Array.isArray(entry.activities)) {
+    alert("No activities found for this task");
+    return;
+  }
+
+  const activity = entry.activities.find(a => a.id === activityId);
+  if (!activity) {
+    alert("Activity not found");
+    return;
+  }
+
+  if (!activity.unitItems) {
+    activity.unitItems = [];
+  }
+
+  const items = activity.unitItems;
+
+  // Get available units from Units Manager
+  const availableUnits = (window.UnitsManager && UnitsManager.getUnits)
+    ? UnitsManager.getUnits() : [];
+
+  function fmt(val) {
+    return "$" + (val || 0).toFixed(2);
+  }
+
+  Modal.open({
+    title: "Unit Details \u2014 " + activity.name,
+    content: (container) => {
+      container.innerHTML = "";
+      container.style.padding = "10px";
+
+      // Header
+      const header = document.createElement("div");
+      header.style.display = "grid";
+      header.style.gridTemplateColumns = "1fr 80px 100px 100px 80px 100px 100px 32px";
+      header.style.gap = "6px";
+      header.style.fontSize = "11px";
+      header.style.fontWeight = "600";
+      header.style.color = "var(--text-muted)";
+      header.style.marginBottom = "6px";
+      header.innerHTML =
+        '<div>Unit</div>' +
+        '<div>Billing</div>' +
+        '<div style="text-align:right">Unit Cost</div>' +
+        '<div style="text-align:right">Sell Rate</div>' +
+        '<div style="text-align:right">Qty</div>' +
+        '<div style="text-align:right">Total Cost</div>' +
+        '<div style="text-align:right">Total Sell</div>' +
+        '<div></div>';
+      container.appendChild(header);
+
+      const list = document.createElement("div");
+      list.style.display = "flex";
+      list.style.flexDirection = "column";
+      list.style.gap = "6px";
+      container.appendChild(list);
+
+      const renderRows = () => {
+        list.innerHTML = "";
+        items.forEach((item, idx) => {
+          const row = document.createElement("div");
+          row.style.display = "grid";
+          row.style.gridTemplateColumns = "1fr 80px 100px 100px 80px 100px 100px 32px";
+          row.style.gap = "6px";
+          row.style.alignItems = "center";
+
+          // Unit picker (select dropdown)
+          const unitSelect = document.createElement("select");
+          unitSelect.className = "form-input";
+          unitSelect.style.fontSize = "11px";
+          const blankOpt = document.createElement("option");
+          blankOpt.value = "";
+          blankOpt.textContent = "-- Select Unit --";
+          unitSelect.appendChild(blankOpt);
+
+          availableUnits.forEach(u => {
+            const opt = document.createElement("option");
+            opt.value = u.id;
+            opt.textContent = u.name;
+            if (item.unitId === u.id) opt.selected = true;
+            unitSelect.appendChild(opt);
+          });
+
+          // Billing unit display
+          const billingEl = document.createElement("div");
+          billingEl.style.fontSize = "11px";
+          billingEl.style.color = "var(--text-muted)";
+          billingEl.textContent = item.billingUnit || "";
+
+          // Unit cost display
+          const costEl = document.createElement("div");
+          costEl.style.fontSize = "11px";
+          costEl.style.textAlign = "right";
+          costEl.style.fontFamily = "monospace";
+          costEl.textContent = fmt(item.costPerUnit);
+
+          // Sell rate display
+          const sellEl = document.createElement("div");
+          sellEl.style.fontSize = "11px";
+          sellEl.style.textAlign = "right";
+          sellEl.style.fontFamily = "monospace";
+          sellEl.textContent = fmt(item.sellPerUnit);
+
+          // Qty input
+          const qtyInput = document.createElement("input");
+          qtyInput.type = "number";
+          qtyInput.className = "form-input";
+          qtyInput.style.textAlign = "right";
+          qtyInput.style.fontSize = "11px";
+          qtyInput.min = "0";
+          qtyInput.step = "1";
+          qtyInput.value = item.qty || "";
+
+          // Total cost display
+          const totalCostEl = document.createElement("div");
+          totalCostEl.style.fontSize = "11px";
+          totalCostEl.style.textAlign = "right";
+          totalCostEl.style.fontFamily = "monospace";
+          totalCostEl.style.fontWeight = "600";
+          totalCostEl.textContent = fmt(item.totalCost);
+
+          // Total sell display
+          const totalSellEl = document.createElement("div");
+          totalSellEl.style.fontSize = "11px";
+          totalSellEl.style.textAlign = "right";
+          totalSellEl.style.fontFamily = "monospace";
+          totalSellEl.style.fontWeight = "600";
+          totalSellEl.textContent = fmt(item.totalSell);
+
+          // Remove button
+          const removeBtn = document.createElement("button");
+          removeBtn.className = "btn btn-secondary";
+          removeBtn.textContent = "\u00d7";
+          removeBtn.style.width = "28px";
+          removeBtn.style.padding = "2px";
+          removeBtn.addEventListener("click", () => {
+            items.splice(idx, 1);
+            renderRows();
+          });
+
+          function recalc() {
+            item.totalCost = (item.costPerUnit || 0) * (item.qty || 0);
+            item.totalSell = (item.sellPerUnit || 0) * (item.qty || 0);
+            totalCostEl.textContent = fmt(item.totalCost);
+            totalSellEl.textContent = fmt(item.totalSell);
+          }
+
+          // Unit selection change
+          unitSelect.addEventListener("change", () => {
+            const selected = availableUnits.find(u => u.id === unitSelect.value);
+            if (selected) {
+              const kpis = window.UnitsManager.calculateKPIs(selected);
+              item.unitId = selected.id;
+              item.unitName = selected.name;
+              item.billingUnit = selected.billingUnit || "";
+              item.costPerUnit = kpis.totalUnitCost;
+              item.sellPerUnit = selected.sellPrice || 0;
+              // Decomposed per-unit costs for financial integration
+              item.laborCostReg = kpis.totalLaborCostReg || 0;
+              item.laborCostOT = kpis.totalLaborCostOT || 0;
+              item.subsCost = kpis.totalSubsCost || 0;
+              item.expenseCost = kpis.totalExpenseCost || 0;
+              billingEl.textContent = item.billingUnit;
+              costEl.textContent = fmt(item.costPerUnit);
+              sellEl.textContent = fmt(item.sellPerUnit);
+            } else {
+              item.unitId = "";
+              item.unitName = "";
+              item.billingUnit = "";
+              item.costPerUnit = 0;
+              item.sellPerUnit = 0;
+              item.laborCostReg = 0;
+              item.laborCostOT = 0;
+              item.subsCost = 0;
+              item.expenseCost = 0;
+              billingEl.textContent = "";
+              costEl.textContent = fmt(0);
+              sellEl.textContent = fmt(0);
+            }
+            recalc();
+          });
+
+          // Qty change
+          qtyInput.addEventListener("input", () => {
+            item.qty = parseFloat(qtyInput.value) || 0;
+            recalc();
+          });
+
+          row.appendChild(unitSelect);
+          row.appendChild(billingEl);
+          row.appendChild(costEl);
+          row.appendChild(sellEl);
+          row.appendChild(qtyInput);
+          row.appendChild(totalCostEl);
+          row.appendChild(totalSellEl);
+          row.appendChild(removeBtn);
+          list.appendChild(row);
+        });
+      };
+
+      // Add button
+      const addBtn = document.createElement("button");
+      addBtn.className = "btn btn-secondary";
+      addBtn.textContent = "+ Add Unit";
+      addBtn.style.marginTop = "8px";
+
+      if (availableUnits.length === 0) {
+        addBtn.title = "Create units first via Unit Mgmt in the sidebar";
+      }
+
+      addBtn.addEventListener("click", () => {
+        items.push({
+          id: crypto.randomUUID(),
+          unitId: "",
+          unitName: "",
+          billingUnit: "",
+          costPerUnit: 0,
+          sellPerUnit: 0,
+          laborCostReg: 0,
+          laborCostOT: 0,
+          subsCost: 0,
+          expenseCost: 0,
+          qty: 0,
+          totalCost: 0,
+          totalSell: 0
+        });
+        renderRows();
+      });
+
+      container.appendChild(addBtn);
+
+      if (availableUnits.length === 0) {
+        const hint = document.createElement("div");
+        hint.style.fontSize = "11px";
+        hint.style.color = "var(--text-muted)";
+        hint.style.marginTop = "8px";
+        hint.textContent = "No units created yet. Use \ud83d\udccf Unit Mgmt in the sidebar to create units first.";
+        container.appendChild(hint);
+      }
+
+      renderRows();
+    },
+    onSave: () => {
+      updateUnitTotals(nodeId);
+      renderWBS();
+      Modal.close();
+    }
+  });
+}
+
+window.openUnitDetails = openUnitDetails;
+
 // ---------------------- selection ----------------------
 function selectRow(id) {
   selectedNodeId = id;
@@ -409,6 +751,21 @@ function formatPercent(value) {
   return (n * 100).toFixed(1) + "%";
 }
 
+// In aggregate mode, adjust display values to exclude unit components
+function wbsGetDisplayValue(obj, key) {
+  if (window.unitsDisplayMode === "aggregate") {
+    switch (key) {
+      case "directLabor":    return (obj.directLabor || 0) - (obj.unitsLaborRaw || 0);
+      case "subcontractors": return (obj.subcontractors || 0) - (obj.unitsSubsCost || 0);
+      case "odc":            return (obj.odc || 0) - (obj.unitsExpenseCost || 0);
+      case "fringeBurden":   return (obj.fringeBurden || 0) - (obj.unitsFringeBurden || 0);
+      case "ohBurden":       return (obj.ohBurden || 0) - (obj.unitsOHBurden || 0);
+      case "burdenedLabor":  return (obj.burdenedLabor || 0) - (obj.unitsLaborRaw || 0) - (obj.unitsFringeBurden || 0) - (obj.unitsOHBurden || 0);
+    }
+  }
+  return obj[key] || 0;
+}
+
 // ---------------------- labor rollup -------------------
 function calculateLaborRollup(node, resourceId, type) {
   let total = 0;
@@ -517,7 +874,14 @@ function calculateTotals() {
     totalCost: 0,
     netMargin: 0,
     nmPct: 0,
-    gmPct: 0
+    gmPct: 0,
+    unitsCost: 0,
+    unitsSell: 0,
+    unitsLaborRaw: 0,
+    unitsSubsCost: 0,
+    unitsExpenseCost: 0,
+    unitsFringeBurden: 0,
+    unitsOHBurden: 0
   };
 
   function walk(node) {
@@ -534,6 +898,13 @@ function calculateTotals() {
       totals.burdenedLabor += Number(node.burdenedLabor || 0);
       totals.totalCost += Number(node.totalCost || 0);
       totals.netMargin += Number(node.netMargin || 0);
+      totals.unitsCost += Number(node.unitsCost || 0);
+      totals.unitsSell += Number(node.unitsSell || 0);
+      totals.unitsLaborRaw += Number(node.unitsLaborRaw || 0);
+      totals.unitsSubsCost += Number(node.unitsSubsCost || 0);
+      totals.unitsExpenseCost += Number(node.unitsExpenseCost || 0);
+      totals.unitsFringeBurden += Number(node.unitsFringeBurden || 0);
+      totals.unitsOHBurden += Number(node.unitsOHBurden || 0);
     } else {
       node.children.forEach(walk);
     }
@@ -607,7 +978,15 @@ function renderTotalsRow() {
       totalsEl.appendChild(otCell);
     });
   }
-  
+  // Schedule columns (if expanded)
+  if (window.expandedPricingMethods.schedule) {
+    totalsEl.appendChild(document.createElement("div"));
+    totalsEl.appendChild(document.createElement("div"));
+  }
+  // Task Props columns (if expanded)
+  if (window.expandedPricingMethods.taskProps) {
+    for (let i = 0; i < 3; i++) totalsEl.appendChild(document.createElement("div"));
+  }
   // Tags column
   const tagsCell = document.createElement("div");
   totalsEl.appendChild(tagsCell);
@@ -620,7 +999,7 @@ function renderTotalsRow() {
   financialColumns.forEach((col) => {
     const cell = document.createElement("div");
     cell.className = "wbs-fin-cell";
-    cell.textContent = formatByType(t[col.key], col.format);
+    cell.textContent = formatByType(wbsGetDisplayValue(t, col.key), col.format);
     totalsEl.appendChild(cell);
   });
 }
@@ -644,6 +1023,14 @@ function renderWBSNode(container, node, level = 1) {
       if (e.dataTransfer.types.includes("text/plain")) {
         e.preventDefault();
         e.dataTransfer.dropEffect = "move";
+
+        // Don't show any indicator when dragging over the activity's own task row
+        if (currentDrag && currentDrag.sourceNodeId === node.id) {
+          row.style.background = "";
+          row.style.borderBottom = "";
+          return;
+        }
+
         row.style.background = "rgba(96, 165, 250, 0.15)";
       }
     });
@@ -651,20 +1038,13 @@ function renderWBSNode(container, node, level = 1) {
     row.addEventListener("dragenter", (e) => {
       if (e.dataTransfer.types.includes("text/plain")) {
         e.preventDefault();
-        
-        // Check if dragging activity from same task - if so, don't show top border (it's confusing)
-        try {
-          const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-          if (data.sourceNodeId === node.id) {
-            // Same task - only show background, no top border
-            row.style.background = "rgba(96, 165, 250, 0.15)";
-            return;
-          }
-        } catch (err) {
-          // Can't parse, show both indicators
+
+        // Don't show indicator when dragging over the activity's own task row
+        if (currentDrag && currentDrag.sourceNodeId === node.id) {
+          return;
         }
-        
-        row.style.borderTop = "2px solid var(--accent)";
+
+        row.style.borderBottom = "2px solid var(--accent)";
       }
     });
 
@@ -673,14 +1053,14 @@ function renderWBSNode(container, node, level = 1) {
       // Only clear if leaving to outside the row
       if (!related || !row.contains(related)) {
         row.style.background = "";
-        row.style.borderTop = "";
+        row.style.borderBottom = "";
       }
     });
 
     row.addEventListener("drop", (e) => {
       e.preventDefault();
       row.style.background = "";
-      row.style.borderTop = "";
+      row.style.borderBottom = "";
       
       try {
         const data = JSON.parse(e.dataTransfer.getData("text/plain"));
@@ -819,7 +1199,7 @@ function renderWBSNode(container, node, level = 1) {
   };
 
   const financialHtml = financialColumns.map(col => {
-    const value = node[col.key];
+    const value = wbsGetDisplayValue(node, col.key);
     if (col.key === "subcontractors" || col.key === "odc") {
       const type = col.key === "subcontractors" ? "subs" : "odc";
       const items = getExpenseItems(node.id, type);
@@ -968,15 +1348,14 @@ function renderWBSNode(container, node, level = 1) {
 
         // Drag to reorder/move activities
         activityRow.addEventListener("dragstart", (e) => {
-          e.dataTransfer.setData("text/plain", JSON.stringify({
-            activityId: activity.id,
-            sourceNodeId: node.id
-          }));
+          currentDrag = { activityId: activity.id, sourceNodeId: node.id };
+          e.dataTransfer.setData("text/plain", JSON.stringify(currentDrag));
           e.dataTransfer.effectAllowed = "copyMove";
           activityRow.style.opacity = "0.5";
         });
 
         activityRow.addEventListener("dragend", (e) => {
+          currentDrag = null;
           activityRow.style.opacity = "1";
         });
 
@@ -986,6 +1365,25 @@ function renderWBSNode(container, node, level = 1) {
             e.preventDefault();
             e.stopPropagation();
             e.dataTransfer.dropEffect = "move";
+
+            // Don't show indicator if dragging over self
+            if (currentDrag && currentDrag.activityId === activity.id && currentDrag.sourceNodeId === node.id) {
+              activityRow.style.borderTop = "";
+              activityRow.style.borderBottom = "";
+              return;
+            }
+
+            // Update indicator based on current mouse position
+            const rect = activityRow.getBoundingClientRect();
+            const midpoint = rect.top + rect.height / 2;
+
+            if (e.clientY < midpoint) {
+              activityRow.style.borderTop = "2px solid var(--accent)";
+              activityRow.style.borderBottom = "";
+            } else {
+              activityRow.style.borderBottom = "2px solid var(--accent)";
+              activityRow.style.borderTop = "";
+            }
           }
         });
 
@@ -993,30 +1391,6 @@ function renderWBSNode(container, node, level = 1) {
           if (e.dataTransfer.types.includes("text/plain")) {
             e.preventDefault();
             e.stopPropagation();
-            
-            // Don't show indicator if dragging over self
-            try {
-              const data = JSON.parse(e.dataTransfer.getData("text/plain"));
-              if (data.activityId === activity.id && data.sourceNodeId === node.id) {
-                return; // Same activity, no indicator
-              }
-            } catch (err) {
-              // If we can't parse, show indicator anyway
-            }
-            
-            // Determine if dragging from above or below based on Y position
-            const rect = activityRow.getBoundingClientRect();
-            const midpoint = rect.top + rect.height / 2;
-            
-            if (e.clientY < midpoint) {
-              // Dragging from above - show top border
-              activityRow.style.borderTop = "2px solid var(--accent)";
-              activityRow.style.borderBottom = "";
-            } else {
-              // Dragging from below - show bottom border
-              activityRow.style.borderBottom = "2px solid var(--accent)";
-              activityRow.style.borderTop = "";
-            }
           }
         });
 
@@ -1052,14 +1426,27 @@ function renderWBSNode(container, node, level = 1) {
               const targetIndex = activities.findIndex(a => a.id === targetActivityId);
               
               if (draggedIndex !== -1 && targetIndex !== -1 && draggedIndex !== targetIndex) {
+                const rect = activityRow.getBoundingClientRect();
+                const midpoint = rect.top + rect.height / 2;
+                const insertBefore = e.clientY < midpoint;
+
                 const [movedActivity] = activities.splice(draggedIndex, 1);
-                // If dragging down, adjust target index
-                const insertIndex = draggedIndex < targetIndex ? targetIndex : targetIndex;
+                let insertIndex;
+                if (insertBefore) {
+                  insertIndex = draggedIndex < targetIndex ? targetIndex - 1 : targetIndex;
+                } else {
+                  insertIndex = draggedIndex < targetIndex ? targetIndex : targetIndex + 1;
+                }
                 activities.splice(insertIndex, 0, movedActivity);
                 renderWBS();
               }
             } else {
               // Different task - prompt for copy or move
+              // Capture mouse position before async modal
+              const crossRect = activityRow.getBoundingClientRect();
+              const crossMidpoint = crossRect.top + crossRect.height / 2;
+              const crossInsertBefore = e.clientY < crossMidpoint;
+
               Modal.choice({
                 title: "Move or Copy Activity?",
                 message: "Choose an action for this activity:",
@@ -1070,7 +1457,7 @@ function renderWBSNode(container, node, level = 1) {
                 ],
                 onChoice: (choice) => {
                   if (choice === "cancel") return;
-                  
+
                   const sourceActivities = laborActivities[sourceNodeId].activities;
                   const draggedIndex = sourceActivities.findIndex(a => a.id === draggedActivityId);
                   if (draggedIndex === -1) return;
@@ -1083,15 +1470,16 @@ function renderWBSNode(container, node, level = 1) {
 
                   const targetActivities = laborActivities[targetNodeId].activities;
                   const targetIndex = targetActivities.findIndex(a => a.id === targetActivityId);
+                  const insertAt = crossInsertBefore ? targetIndex : targetIndex + 1;
 
                   if (choice === "move") {
                     const [movedActivity] = sourceActivities.splice(draggedIndex, 1);
-                    targetActivities.splice(targetIndex, 0, movedActivity);
+                    targetActivities.splice(insertAt, 0, movedActivity);
                   } else if (choice === "copy") {
                     const copiedActivity = JSON.parse(JSON.stringify(sourceActivity));
                     copiedActivity.id = crypto.randomUUID();
                     copiedActivity.name = sourceActivity.name + " (copy)";
-                    targetActivities.splice(targetIndex, 0, copiedActivity);
+                    targetActivities.splice(insertAt, 0, copiedActivity);
                   }
 
                   renderWBS();
@@ -1184,25 +1572,15 @@ function renderWBSNode(container, node, level = 1) {
           const startCell = document.createElement("div");
           startCell.className = "schedule-col-cell";
           const startInput = document.createElement("input");
-          startInput.type = "text";
+          startInput.type = "date";
           startInput.className = "wbs-date-input";
-          startInput.placeholder = "yyyy/mm/dd";
-          startInput.value = formatForDisplay(activity.start);
-          startInput.addEventListener("blur", () => {
-            activity.start = parseToISO(startInput.value);
+          startInput.value = activity.start || "";
+          startInput.addEventListener("change", () => {
+            activity.start = startInput.value;
             if (window.Calculations && window.Calculations.recalculate) {
               window.Calculations.recalculate();
             }
             renderWBS();
-          });
-          startInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              activity.start = parseToISO(startInput.value);
-              if (window.Calculations && window.Calculations.recalculate) {
-                window.Calculations.recalculate();
-              }
-              renderWBS();
-            }
           });
           startCell.appendChild(startInput);
           activityRow.appendChild(startCell);
@@ -1211,25 +1589,15 @@ function renderWBSNode(container, node, level = 1) {
           const finishCell = document.createElement("div");
           finishCell.className = "schedule-col-cell";
           const finishInput = document.createElement("input");
-          finishInput.type = "text";
+          finishInput.type = "date";
           finishInput.className = "wbs-date-input";
-          finishInput.placeholder = "yyyy/mm/dd";
-          finishInput.value = formatForDisplay(activity.finish);
-          finishInput.addEventListener("blur", () => {
-            activity.finish = parseToISO(finishInput.value);
+          finishInput.value = activity.finish || "";
+          finishInput.addEventListener("change", () => {
+            activity.finish = finishInput.value;
             if (window.Calculations && window.Calculations.recalculate) {
               window.Calculations.recalculate();
             }
             renderWBS();
-          });
-          finishInput.addEventListener("keydown", (e) => {
-            if (e.key === "Enter") {
-              activity.finish = parseToISO(finishInput.value);
-              if (window.Calculations && window.Calculations.recalculate) {
-                window.Calculations.recalculate();
-              }
-              renderWBS();
-            }
           });
           finishCell.appendChild(finishInput);
           activityRow.appendChild(finishCell);
@@ -1267,13 +1635,30 @@ function renderWBSNode(container, node, level = 1) {
             revenue += regHours * rates.sellRegular + otHours * rates.sellOT;
           }
 
+          // Unit items from this activity
+          let aULReg = 0, aULOT = 0, aUSubs = 0, aUExp = 0, aURev = 0;
+          if (activity.unitItems) {
+            for (const ui of activity.unitItems) {
+              const qty = Number(ui.qty || 0);
+              if (qty === 0) continue;
+              aULReg += (ui.laborCostReg || 0) * qty;
+              aULOT += (ui.laborCostOT || 0) * qty;
+              aUSubs += (ui.subsCost || 0) * qty;
+              aUExp += (ui.expenseCost || 0) * qty;
+              aURev += (ui.sellPerUnit || 0) * qty;
+            }
+          }
+          directLaborReg += aULReg;
+          directLaborOT += aULOT;
+          revenue += aURev;
+
           const rawLabor = directLaborReg + directLaborOT;
 
           // Get expense values from this activity
           const subsItems = activity.expenses?.subs || [];
           const odcItems = activity.expenses?.odc || [];
-          const subsCost = subsItems.reduce((sum, item) => sum + Number(item.cost || 0), 0);
-          const odcCost = odcItems.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+          const subsCost = subsItems.reduce((sum, item) => sum + Number(item.cost || 0), 0) + aUSubs;
+          const odcCost = odcItems.reduce((sum, item) => sum + Number(item.cost || 0), 0) + aUExp;
           const subsSell = subsItems.reduce((sum, item) => sum + Number(item.sell || 0), 0);
           const odcSell = odcItems.reduce((sum, item) => sum + Number(item.sell || 0), 0);
 
@@ -1290,6 +1675,11 @@ function renderWBSNode(container, node, level = 1) {
           const burdenedLabor = rawLabor + fringeBurden + ohBurden;
           const totalCost = burdenedLabor + subsCost + odcCost;
 
+          // Unit burden for aggregate display
+          const aUFringe = (aULReg * fringeRegRate) + (aULOT * fringeOtRate);
+          const aUOH = (aULReg * ohRegRate) + (aULOT * ohOtRate);
+          const aULRaw = aULReg + aULOT;
+
           const dlm = rawLabor > 0 ? (netRevenue / rawLabor) : 0;
           const pcm = netRevenue - rawLabor - fringeBurden;
           const pcmPct = grossRevenue > 0 ? (pcm / grossRevenue) : 0;
@@ -1302,6 +1692,7 @@ function renderWBSNode(container, node, level = 1) {
             subcontractors: subsCost,
             odc: odcCost,
             rawLabor,
+            directLabor: rawLabor,
             netRevenue,
             dlm,
             fringeBurden,
@@ -1312,7 +1703,14 @@ function renderWBSNode(container, node, level = 1) {
             totalCost,
             netMargin,
             nmPct,
-            gmPct
+            gmPct,
+            unitsCost: (aULRaw + aUFringe + aUOH) + aUSubs + aUExp,
+            unitsSell: aURev,
+            unitsLaborRaw: aULRaw,
+            unitsSubsCost: aUSubs,
+            unitsExpenseCost: aUExp,
+            unitsFringeBurden: aUFringe,
+            unitsOHBurden: aUOH
           };
         }
 
@@ -1333,13 +1731,13 @@ function renderWBSNode(container, node, level = 1) {
               const iconHtml = hasEntries ? `<button class="expense-detail-btn" data-expense-type="${type}" title="View details">🗒️</button>` : '';
               cell.innerHTML = `
                 ${iconHtml}
-                <span class="expense-value">${formatMoney(financials[col.key])}</span>
+                <span class="expense-value">${formatMoney(wbsGetDisplayValue(financials, col.key))}</span>
               `;
               cell.className = "wbs-fin-cell expense-cell";
               cell.dataset.expenseType = type;
               cell.style.fontStyle = "normal";
             } else {
-              const value = financials[col.key];
+              const value = wbsGetDisplayValue(financials, col.key);
               cell.textContent = col.format === "percent"
                 ? formatPercent(value)
                 : formatMoney(value);
@@ -1523,11 +1921,18 @@ function renderWBS() {
 
   container.innerHTML = "";
 
+  const wbsUnitsAgg = window.unitsDisplayMode === "aggregate";
+  const wbsUnitsCols = wbsUnitsAgg ? [
+    { key: "unitsCost", label: "Units Cost", format: "money", width: "120px" },
+    { key: "unitsSell", label: "Units Sell", format: "money", width: "120px" },
+  ] : [];
+
   financialColumns = window.financialMode === "simple"
     ? [
         { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "130px" },
         { key: "subcontractors", label: "Subs", format: "money", width: "120px" },
         { key: "odc", label: "ODC", format: "money", width: "120px" },
+        ...wbsUnitsCols,
         { key: "directLabor", label: "Raw Labor", format: "money", width: "120px" },
         { key: "totalCost", label: "Total Cost", format: "money", width: "120px" },
         { key: "netRevenue", label: "Net Revenue", format: "money", width: "130px" },
@@ -1538,6 +1943,7 @@ function renderWBS() {
         { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "130px" },
         { key: "subcontractors", label: "Subs", format: "money", width: "120px" },
         { key: "odc", label: "ODC", format: "money", width: "120px" },
+        ...wbsUnitsCols,
         { key: "directLabor", label: "Raw Labor", format: "money", width: "130px" },
         { key: "netRevenue", label: "Net Revenue", format: "money", width: "130px" },
         { key: "dlm", label: "DLM", format: "money", width: "90px" },
@@ -1578,19 +1984,17 @@ function renderWBS() {
       `;
     });
     
-    if (laborResources.length === 0) {
-      columnTemplate += `<div class="col-header" style="text-align: center; font-size: 10px; font-style: italic; color: var(--text-muted);">No resources</div>`;
-    }
+    // No placeholder when 0 resources - it would break grid alignment
   }
 
   // Add schedule columns if expanded
   if (window.expandedPricingMethods.schedule) {
     columnTemplate += `
       <div class="col-header schedule-header" style="text-align: center; font-size: 11px; cursor: pointer; user-select: none;">
-        Start (yyyy/mm/dd)
+        Start
       </div>
       <div class="col-header schedule-header" style="text-align: center; font-size: 11px; cursor: pointer; user-select: none;">
-        Finish (yyyy/mm/dd)
+        Finish
       </div>
     `;
   }
@@ -1674,8 +2078,9 @@ function renderWBS() {
       const overrideStyle = hasOverride ? " color: var(--accent); font-weight: 600;" : "";
       const overrideIndicator = hasOverride ? " *" : "";
       
-      const costReg = res.overrideCostReg !== undefined ? res.overrideCostReg : (res.costRate || 0);
-      const costOT = res.overrideCostOT !== undefined ? res.overrideCostOT : ((res.costRate || 0) * 1.5);
+      const baseCost = res.costRate || lookupCostRateByCostRateId(res.costRateId) || 0;
+      const costReg = res.overrideCostReg !== undefined ? res.overrideCostReg : baseCost;
+      const costOT = res.overrideCostOT !== undefined ? res.overrideCostOT : (baseCost * 1.5);
       
       rateDetailHTML += `
         <div class="labor-col-cell${oddClass}" style="text-align: center; padding: 4px 2px;">
@@ -1716,8 +2121,11 @@ function renderWBS() {
       const overrideStyle = hasOverride ? " font-weight: 700;" : "";
       const overrideIndicator = hasOverride ? " *" : "";
       
-      const sellReg = res.overrideSellReg !== undefined ? res.overrideSellReg : (res.chargeoutRate || 0);
-      const sellOT = res.overrideSellOT !== undefined ? res.overrideSellOT : ((res.chargeoutRate || 0) * 1.5);
+      const scheduleSell = lookupSellRateFromSchedule(res.rateScheduleId, res.jobLevel);
+      const baseSellReg = scheduleSell ? scheduleSell.reg : 0;
+      const baseSellOT = scheduleSell ? scheduleSell.ot : 0;
+      const sellReg = res.overrideSellReg !== undefined ? res.overrideSellReg : baseSellReg;
+      const sellOT = res.overrideSellOT !== undefined ? res.overrideSellOT : baseSellOT;
       
       sellRateHTML += `
         <div class="labor-col-cell${oddClass}" style="text-align: center; padding: 4px 2px;">
@@ -1740,15 +2148,50 @@ function renderWBS() {
   if (window.expandedPricingMethods.labor) {
     const headers = Array.from(container.querySelectorAll(".resource-header[data-resource-id]"));
     headers.forEach((header) => {
-      // Right-click for rate override
+      // Right-click context menu
       header.addEventListener("contextmenu", (e) => {
         e.preventDefault();
         e.stopPropagation();
         const resourceId = header.dataset.resourceId;
         const resource = laborResources.find(r => r.id === resourceId);
         if (!resource) return;
-        
-        openRateOverrideModal(resource);
+
+        // Remove any existing context menu
+        const old = document.querySelector(".wbs-context-menu");
+        if (old) old.remove();
+
+        const menu = document.createElement("div");
+        menu.className = "wbs-context-menu";
+        menu.style.cssText = `position:fixed; left:${e.clientX}px; top:${e.clientY}px; z-index:9999;
+          background:var(--bg-panel); border:1px solid var(--border); border-radius:4px;
+          box-shadow:0 4px 12px rgba(0,0,0,0.3); padding:4px 0; min-width:160px; font-size:12px;`;
+
+        function addItem(label, onClick) {
+          const item = document.createElement("div");
+          item.textContent = label;
+          item.style.cssText = "padding:6px 14px; cursor:pointer; color:var(--text);";
+          item.addEventListener("mouseenter", () => item.style.background = "var(--bg-hover)");
+          item.addEventListener("mouseleave", () => item.style.background = "");
+          item.addEventListener("click", () => { menu.remove(); onClick(); });
+          menu.appendChild(item);
+        }
+
+        addItem("Rate Overrides", () => openRateOverrideModal(resource));
+
+        addItem("Remove Resource", () => {
+          if (!confirm(`Remove "${resource.name}" from labor resources?`)) return;
+          const idx = laborResources.findIndex(r => r.id === resourceId);
+          if (idx !== -1) laborResources.splice(idx, 1);
+          renderWBS();
+        });
+
+        document.body.appendChild(menu);
+
+        // Close on click outside
+        const closeMenu = (ev) => {
+          if (!menu.contains(ev.target)) { menu.remove(); document.removeEventListener("click", closeMenu, true); }
+        };
+        setTimeout(() => document.addEventListener("click", closeMenu, true), 0);
       });
       
       // Double-click to change resource
@@ -1860,12 +2303,18 @@ function renderWBS() {
                 
                 item.addEventListener("click", () => {
                   // Update the resource
+                  const lookedUpCost = lookupCostRateByCostRateId(resource.costRateId);
                   laborResources[resourceIndex] = {
                     ...laborResources[resourceIndex],
                     name: resource.label || resource.name,
                     resourceId: resource.id,
                     chargeoutRate: resource.sell || 0,
-                    costRate: resource.cost || 0
+                    costRate: lookedUpCost || resource.cost || 0,
+                    employeeId: resource.employeeId,
+                    jobLevel: resource.jobLevel,
+                    role: resource.role,
+                    costRateId: resource.costRateId,
+                    lvl3Id: resource.lvl3Id
                   };
                   renderWBS();
                   Modal.close();
@@ -2011,6 +2460,7 @@ function wireTopButtons() {
   const addUsageBtn = document.getElementById("addUsageBtn");
   const resourceManagerBtn = document.getElementById("resourceManagerBtn");
   const financialModeToggle = document.getElementById("financialModeToggle");
+  const unitDisplayToggle = document.getElementById("unitDisplayToggle");
   const toolbar = document.querySelector(".wbs-toolbar");
 
   if (phaseBtn) {
@@ -2068,12 +2518,14 @@ function wireTopButtons() {
       
       // Initialize labor data if expanding for first time
       if (window.expandedPricingMethods.labor && laborResources.length === 0) {
+        const defaultTable = RateTables.getDefaultTable ? RateTables.getDefaultTable() : null;
         laborResources.push({
           id: crypto.randomUUID(),
           name: "Resource 1",
           resourceId: "p5-professional",
-          chargeoutRate: 100,
-          costRate: 60
+          chargeoutRate: 0,
+          costRate: 0,
+          rateScheduleId: defaultTable ? defaultTable.id : undefined
         });
       }
       
@@ -2281,12 +2733,20 @@ function wireTopButtons() {
               
               item.addEventListener("click", () => {
                 // Add the selected resource to laborResources
+                const defaultTable = RateTables.getDefaultTable ? RateTables.getDefaultTable() : null;
+                const lookedUpCost = lookupCostRateByCostRateId(resource.costRateId);
                 laborResources.push({
                   id: crypto.randomUUID(),
                   name: resource.label || resource.name,
                   resourceId: resource.id,
                   chargeoutRate: resource.sell || 0,
-                  costRate: resource.cost || 0
+                  costRate: lookedUpCost || resource.cost || 0,
+                  rateScheduleId: defaultTable ? defaultTable.id : undefined,
+                  employeeId: resource.employeeId,
+                  jobLevel: resource.jobLevel,
+                  role: resource.role,
+                  costRateId: resource.costRateId,
+                  lvl3Id: resource.lvl3Id
                 });
                 renderWBS();
                 Modal.close();
@@ -2365,9 +2825,11 @@ function wireTopButtons() {
 
   if (addUsageBtn) {
     addUsageBtn.onclick = () => {
-      if (!selectedNodeId) return;
-      alert("Unit functionality coming soon!");
-      // TODO: Implement unit form/modal
+      if (!selectedActivityId || !selectedActivityNodeId) {
+        alert("Please select an activity row first");
+        return;
+      }
+      openUnitDetails(selectedActivityNodeId, selectedActivityId);
     };
     addUsageBtn.style.display = window.expandedPricingMethods.usages ? "inline-flex" : "none";
   }
@@ -2394,6 +2856,19 @@ function wireTopButtons() {
       renderWBS();
     };
   }
+
+  if (unitDisplayToggle) {
+    const updateUnitLabel = () => {
+      unitDisplayToggle.textContent = window.unitsDisplayMode === "split"
+        ? "📦 Units: Split" : "📦 Units: Column";
+    };
+    updateUnitLabel();
+    unitDisplayToggle.onclick = () => {
+      window.unitsDisplayMode = window.unitsDisplayMode === "split" ? "aggregate" : "split";
+      updateUnitLabel();
+      renderWBS();
+    };
+  }
 }
 
 // Rate Override Modal
@@ -2406,88 +2881,238 @@ function openRateOverrideModal(resource) {
       container.style.maxWidth = "340px";
       container.style.fontSize = "10px";
 
-      // Get default rates
-      const defaultCostReg = resource.costRate || 60;
-      const defaultCostOT = (resource.costRate || 60) * 1.5;
-      const defaultSellReg = resource.chargeoutRate || 120;
-      const defaultSellOT = (resource.chargeoutRate || 120) * 1.5;
+      // Resource Info section
+      const orgUnit = window.BusinessOrgManager && window.BusinessOrgManager.getOrgByLvl3Id
+        ? window.BusinessOrgManager.getOrgByLvl3Id(resource.lvl3Id)
+        : null;
 
-      // Helper to create compact input field
-      function createRateInput(label, defaultValue, overrideValue) {
-        const row = document.createElement("div");
-        row.style.display = "grid";
-        row.style.gridTemplateColumns = "80px 60px 70px";
-        row.style.gap = "4px";
-        row.style.alignItems = "center";
-        row.style.marginBottom = "4px";
+      const infoTitle = document.createElement("div");
+      infoTitle.textContent = "Resource Info";
+      infoTitle.style.fontSize = "10px";
+      infoTitle.style.fontWeight = "600";
+      infoTitle.style.marginBottom = "3px";
+      infoTitle.style.paddingBottom = "2px";
+      infoTitle.style.borderBottom = "1px solid var(--border)";
+      container.appendChild(infoTitle);
 
-        const labelEl = document.createElement("label");
+      const infoGrid = document.createElement("div");
+      infoGrid.style.display = "grid";
+      infoGrid.style.gridTemplateColumns = "65px 1fr";
+      infoGrid.style.gap = "2px 6px";
+      infoGrid.style.marginBottom = "8px";
+      infoGrid.style.fontSize = "9px";
+
+      const infoFields = [
+        ["Employee ID", resource.employeeId || "—"],
+        ["Job Level", resource.jobLevel || "—"],
+        ["Role", resource.role || "—"],
+        ["Rate Lookup", resource.costRateId || "—"],
+        ["Lvl3", orgUnit ? `${orgUnit.lvl3_name} (${orgUnit.lvl3_id})` : (resource.lvl3Id || "—")],
+        ["Lvl2", orgUnit ? `${orgUnit.lvl2_name} (${orgUnit.lvl2_id})` : "—"],
+        ["Lvl1", orgUnit ? `${orgUnit.lvl1_name} (${orgUnit.lvl1_id})` : "—"],
+      ];
+
+      infoFields.forEach(([label, value]) => {
+        const labelEl = document.createElement("span");
         labelEl.textContent = label;
-        labelEl.style.fontSize = "9px";
         labelEl.style.color = "var(--text-muted)";
+        const valueEl = document.createElement("span");
+        valueEl.textContent = value;
+        valueEl.style.color = "var(--text)";
+        infoGrid.appendChild(labelEl);
+        infoGrid.appendChild(valueEl);
+      });
 
+      // Look up cost rate from imported cost rates table using Rate Lookup code
+      const lookupCostRate = lookupCostRateByCostRateId(resource.costRateId);
+
+      // Show looked-up cost rate in info grid
+      if (lookupCostRate !== null) {
+        const labelEl = document.createElement("span");
+        labelEl.textContent = "Cost Rate";
+        labelEl.style.color = "var(--text-muted)";
+        const valueEl = document.createElement("span");
+        valueEl.textContent = `$${lookupCostRate.toFixed(2)}`;
+        valueEl.style.color = "var(--text)";
+        infoGrid.appendChild(labelEl);
+        infoGrid.appendChild(valueEl);
+      }
+
+      container.appendChild(infoGrid);
+
+      // Sync resource.costRate from imported cost rates if available
+      if (lookupCostRate !== null && resource.costRate !== lookupCostRate) {
+        resource.costRate = lookupCostRate;
+      }
+
+      // Rate Schedule section
+      const scheduleTitle = document.createElement("div");
+      scheduleTitle.textContent = "Rate Schedule";
+      scheduleTitle.style.fontSize = "10px";
+      scheduleTitle.style.fontWeight = "600";
+      scheduleTitle.style.marginBottom = "3px";
+      scheduleTitle.style.paddingBottom = "2px";
+      scheduleTitle.style.borderBottom = "1px solid var(--border)";
+      container.appendChild(scheduleTitle);
+
+      const scheduleRow = document.createElement("div");
+      scheduleRow.style.display = "flex";
+      scheduleRow.style.alignItems = "center";
+      scheduleRow.style.marginBottom = "8px";
+      scheduleRow.style.gap = "8px";
+
+      const scheduleSelect = document.createElement("select");
+      scheduleSelect.style.width = "100%";
+      scheduleSelect.style.padding = "2px 4px";
+      scheduleSelect.style.border = "1px solid var(--border)";
+      scheduleSelect.style.borderRadius = "3px";
+      scheduleSelect.style.background = "var(--bg)";
+      scheduleSelect.style.color = "var(--text)";
+      scheduleSelect.style.fontSize = "9px";
+
+      // Default option
+      const defaultOption = document.createElement("option");
+      defaultOption.value = "";
+      defaultOption.textContent = "Default (Location-based)";
+      scheduleSelect.appendChild(defaultOption);
+
+      // Populate with rate schedules created via Rate Schedule Management
+      const customTables = RateTables.getCustomTables();
+      customTables.forEach(table => {
+        const opt = document.createElement("option");
+        opt.value = table.id;
+        opt.textContent = table.label || table.id;
+        if (resource.rateScheduleId === table.id) opt.selected = true;
+        scheduleSelect.appendChild(opt);
+      });
+
+      scheduleSelect.addEventListener("change", () => {
+        resource.rateScheduleId = scheduleSelect.value || undefined;
+        // Update sell rate defaults from new schedule
+        const newSell = lookupSellRateFromSchedule(resource.rateScheduleId, resource.jobLevel);
+        const newSellReg = newSell ? newSell.reg : 0;
+        const newSellOT = newSell ? newSell.ot : 0;
+        if (sellRegDefault) {
+          sellRegDefault.textContent = newSellReg > 0 ? `$${newSellReg.toFixed(2)}` : "—";
+        }
+        if (sellOTDefault) {
+          sellOTDefault.textContent = newSellOT > 0 ? `$${newSellOT.toFixed(2)}` : "—";
+        }
+        // Trigger recalculation when rate schedule changes
+        if (window.Calculations && window.Calculations.recalculate) {
+          window.Calculations.recalculate();
+        } else {
+          renderWBS();
+        }
+      });
+
+      scheduleRow.appendChild(scheduleSelect);
+      container.appendChild(scheduleRow);
+
+      // Get default cost rates
+      const defaultCostReg = lookupCostRate || resource.costRate || 0;
+      const defaultCostOT = (lookupCostRate || resource.costRate || 0) * 1.5;
+
+      // Get default sell rates from assigned rate schedule
+      const scheduleSell = lookupSellRateFromSchedule(resource.rateScheduleId, resource.jobLevel);
+      let defaultSellReg = scheduleSell ? scheduleSell.reg : 0;
+      let defaultSellOT = scheduleSell ? scheduleSell.ot : 0;
+
+      // Rates table with Default and Override columns
+      const ratesTable = document.createElement("table");
+      ratesTable.style.width = "100%";
+      ratesTable.style.borderCollapse = "collapse";
+      ratesTable.style.fontSize = "9px";
+
+      const thead = document.createElement("thead");
+      const thRow = document.createElement("tr");
+      ["", "Default", "Override"].forEach((text, i) => {
+        const th = document.createElement("th");
+        th.textContent = text;
+        th.style.padding = "3px 6px";
+        th.style.fontSize = "9px";
+        th.style.fontWeight = "600";
+        th.style.borderBottom = "1px solid var(--border)";
+        th.style.color = "var(--text-muted)";
+        th.style.textAlign = i === 0 ? "left" : i === 1 ? "right" : "left";
+        thRow.appendChild(th);
+      });
+      thead.appendChild(thRow);
+      ratesTable.appendChild(thead);
+
+      const tbody = document.createElement("tbody");
+
+      function createSectionHeader(label) {
+        const tr = document.createElement("tr");
+        const td = document.createElement("td");
+        td.colSpan = 3;
+        td.textContent = label;
+        td.style.fontSize = "10px";
+        td.style.fontWeight = "600";
+        td.style.paddingTop = "8px";
+        td.style.paddingBottom = "2px";
+        td.style.borderBottom = "1px solid var(--border)";
+        tr.appendChild(td);
+        tbody.appendChild(tr);
+      }
+
+      function createRateRow(label, defaultValue, overrideValue) {
+        const tr = document.createElement("tr");
+
+        const labelCell = document.createElement("td");
+        labelCell.textContent = label;
+        labelCell.style.padding = "4px 6px";
+        labelCell.style.color = "var(--text-muted)";
+        labelCell.style.whiteSpace = "nowrap";
+        tr.appendChild(labelCell);
+
+        const defaultCell = document.createElement("td");
+        defaultCell.textContent = defaultValue > 0 ? `$${defaultValue.toFixed(2)}` : "—";
+        defaultCell.style.padding = "4px 6px";
+        defaultCell.style.textAlign = "right";
+        defaultCell.style.color = "var(--text)";
+        defaultCell.style.fontFamily = "monospace";
+        tr.appendChild(defaultCell);
+
+        const inputCell = document.createElement("td");
+        inputCell.style.padding = "2px 4px";
         const input = document.createElement("input");
         input.type = "number";
         input.step = "0.01";
         input.min = "0";
         input.value = overrideValue !== undefined ? overrideValue : "";
-        input.placeholder = defaultValue.toFixed(0);
-        input.style.width = "100%";
+        input.placeholder = "—";
+        input.style.width = "70px";
         input.style.padding = "2px 4px";
         input.style.border = "1px solid var(--border)";
         input.style.borderRadius = "3px";
         input.style.background = "var(--bg)";
         input.style.color = "var(--text)";
         input.style.fontSize = "9px";
+        input.style.textAlign = "right";
+        inputCell.appendChild(input);
+        tr.appendChild(inputCell);
 
-        const defaultNote = document.createElement("span");
-        defaultNote.textContent = `($${defaultValue.toFixed(0)})`;
-        defaultNote.style.fontSize = "8px";
-        defaultNote.style.color = "var(--text-muted)";
-
-        row.appendChild(labelEl);
-        row.appendChild(input);
-        row.appendChild(defaultNote);
-
-        return { row, input };
+        tbody.appendChild(tr);
+        return { input, defaultCell };
       }
 
-      // Cost rates section
-      const costTitle = document.createElement("div");
-      costTitle.textContent = "Cost";
-      costTitle.style.fontSize = "10px";
-      costTitle.style.fontWeight = "600";
-      costTitle.style.marginBottom = "3px";
-      costTitle.style.paddingBottom = "2px";
-      costTitle.style.borderBottom = "1px solid var(--border)";
-      container.appendChild(costTitle);
+      // Cost rates rows
+      createSectionHeader("Cost Rates");
+      const { input: costRegInput } = createRateRow("Regular", defaultCostReg, resource.overrideCostReg);
+      const { input: costOTInput } = createRateRow("Overtime", defaultCostOT, resource.overrideCostOT);
 
-      const { row: costRegRow, input: costRegInput } = createRateInput("Reg:", defaultCostReg, resource.overrideCostReg);
-      container.appendChild(costRegRow);
+      // Sell rates rows
+      createSectionHeader("Sell Rates");
+      const { input: sellRegInput, defaultCell: sellRegDefault } = createRateRow("Regular", defaultSellReg, resource.overrideSellReg);
+      const { input: sellOTInput, defaultCell: sellOTDefault } = createRateRow("Overtime", defaultSellOT, resource.overrideSellOT);
 
-      const { row: costOTRow, input: costOTInput } = createRateInput("OT:", defaultCostOT, resource.overrideCostOT);
-      container.appendChild(costOTRow);
+      ratesTable.appendChild(tbody);
+      container.appendChild(ratesTable);
 
-      // Sell rates section
-      const sellTitle = document.createElement("div");
-      sellTitle.textContent = "Sell";
-      sellTitle.style.fontSize = "10px";
-      sellTitle.style.fontWeight = "600";
-      sellTitle.style.marginTop = "6px";
-      sellTitle.style.marginBottom = "3px";
-      sellTitle.style.paddingBottom = "2px";
-      sellTitle.style.borderBottom = "1px solid var(--border)";
-      container.appendChild(sellTitle);
-
-      const { row: sellRegRow, input: sellRegInput } = createRateInput("Reg:", defaultSellReg, resource.overrideSellReg);
-      container.appendChild(sellRegRow);
-
-      const { row: sellOTRow, input: sellOTInput } = createRateInput("OT:", defaultSellOT, resource.overrideSellOT);
-      container.appendChild(sellOTRow);
-
-      // Clear button
+      // Clear overrides button
       const clearBtn = document.createElement("button");
-      clearBtn.textContent = "Clear";
+      clearBtn.textContent = "Clear Overrides";
       clearBtn.className = "btn btn-secondary";
       clearBtn.style.marginTop = "6px";
       clearBtn.style.padding = "2px 8px";
@@ -2508,16 +3133,9 @@ function openRateOverrideModal(resource) {
         resource.overrideSellReg = sellRegInput.value ? parseFloat(sellRegInput.value) : undefined;
         resource.overrideSellOT = sellOTInput.value ? parseFloat(sellOTInput.value) : undefined;
 
-        console.log("✅ Rate overrides saved for", resource.name, resource);
-        
-        // Trigger recalculation
-        if (window.Calculations && window.Calculations.recalculate) {
-          window.Calculations.recalculate();
-        } else {
-          renderWBS();
-        }
-        
         Modal.close();
+        // Full re-render so rate detail rows update with new schedule/overrides
+        renderWBS();
       };
     },
     onSave: (container) => {

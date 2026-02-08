@@ -38,30 +38,36 @@ window.Modal = (function () {
       body.appendChild(content);
     }
 
-    const footer = document.createElement("div");
-    footer.className = "modal-footer";
+    // Only show footer if there's a save action
+    if (onSave) {
+      const footer = document.createElement("div");
+      footer.className = "modal-footer";
 
-    const cancelBtn = document.createElement("button");
-    cancelBtn.className = "btn";
-    cancelBtn.textContent = "Cancel";
-    cancelBtn.addEventListener("click", () => {
-      if (onClose) onClose();
-      close();
-    });
+      const cancelBtn = document.createElement("button");
+      cancelBtn.className = "btn";
+      cancelBtn.textContent = "Cancel";
+      cancelBtn.addEventListener("click", () => {
+        if (onClose) onClose();
+        close();
+      });
 
-    const saveBtn = document.createElement("button");
-    saveBtn.className = "btn btn-primary";
-    saveBtn.textContent = "Save";
-    saveBtn.addEventListener("click", () => {
-      if (onSave) onSave();
-    });
+      const saveBtn = document.createElement("button");
+      saveBtn.className = "btn btn-primary";
+      saveBtn.textContent = "Save";
+      saveBtn.addEventListener("click", () => {
+        onSave(body);
+      });
 
-    footer.appendChild(cancelBtn);
-    footer.appendChild(saveBtn);
+      footer.appendChild(cancelBtn);
+      footer.appendChild(saveBtn);
 
-    modal.appendChild(header);
-    modal.appendChild(body);
-    modal.appendChild(footer);
+      modal.appendChild(header);
+      modal.appendChild(body);
+      modal.appendChild(footer);
+    } else {
+      modal.appendChild(header);
+      modal.appendChild(body);
+    }
 
     backdrop.appendChild(modal);
     backdrop.addEventListener("click", (e) => {

@@ -7,10 +7,10 @@
   <!-- CSS -->
   <link rel="stylesheet" href="css/base.css?v=4" />
   <link rel="stylesheet" href="css/layout.css?v=13" />
-  <link rel="stylesheet" href="css/components.css?v=13" />
+  <link rel="stylesheet" href="css/components.css?v=14" />
   <link rel="stylesheet" href="css/theme-dark.css?v=3" />
   <link rel="stylesheet" href="css/theme-light.css?v=2" />
-  <link rel="stylesheet" href="css/modal.css?v=4" />
+  <link rel="stylesheet" href="css/modal.css?v=5" />
 
 </head>
 
@@ -51,6 +51,7 @@
                       <button id="setupMandatoryWBSTasksBtn" class="btn btn-secondary">📋 Mandatory WBS Tasks</button>
                       <button id="setupTagsBtn" class="btn btn-secondary">🏷 Tag Mgmt</button>
                       <button id="setupUnitsBtn" class="btn btn-secondary">📏 Unit Mgmt</button>
+                      <button id="viewImportedJobLevelsBtn" class="btn btn-secondary">📋 View Imported Job Levels</button>
             <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border);"></div>
             <div style="display: flex; align-items: center; gap: 8px; padding: 4px 0;">
               <input type="checkbox" id="autobackupEnabled" style="cursor: pointer;" />
@@ -109,6 +110,7 @@
         <div style="flex: 1;"></div>
 
         <button id="financialModeToggle" class="btn btn-primary" style="text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; font-weight: 600;">💰 Simple Financials</button>
+        <button id="unitDisplayToggle" class="btn btn-primary" style="text-transform: uppercase; font-size: 11px; letter-spacing: 0.5px; font-weight: 600;">📦 Units: Split</button>
       </div>
       <div id="wbsContainer" class="wbs-container">
         <!-- WBS rows injected here -->
@@ -122,7 +124,7 @@
   </div>
 
   <!-- JS -->
-  <script src="js/datastore.js?v=9"></script>
+  <script src="js/datastore.js?v=10"></script>
   <script src="js/job-levels.js?v=2"></script>
     <script src="js/rate-columns.js?v=2"></script>
   <script src="js/rate-tables.js?v=2"></script>
@@ -130,10 +132,11 @@
   <script src="js/registry-estimateTypes.js?v=3"></script>
   <script src="js/registry-tags.js?v=3"></script>
   <script src="js/registry-units.js?v=3"></script>
-  <script src="js/rates.js?v=5"></script>
-  <script src="js/calculations.js?v=10"></script>
+  <script src="js/rates.js?v=8"></script>
+  <script src="js/calculations.js?v=11"></script>
   <script src="js/resource-manager.js?v=16"></script>
   <script src="js/usages-manager.js?v=1"></script>
+  <script src="js/units-manager.js?v=2"></script>
   <script src="js/rate-tables-manager.js?v=1"></script>
   <script src="js/estimate-export.js?v=1"></script>
   <script src="js/oracle-export.js?v=7"></script>
@@ -148,13 +151,13 @@
   <script src="js/pills.js?v=3"></script>
   <script src="js/dragdrop.js?v=3"></script>
 	<script src="js/columnResize.js?v=3"></script>
-  <script src="js/wbs.js?v=54"></script>
-  <script src="js/business-org-manager.js?v=1"></script>
+  <script src="js/wbs.js?v=64"></script>
+  <script src="js/business-org-manager.js?v=3"></script>
   <script src="js/app.js?v=8"></script>
   <script>
-    console.log("Page loaded, all scripts should be loaded now");
-    console.log("RateScheduleManager:", window.RateScheduleManager);
-    console.log("Modal:", window.Modal);
+    // console.log("Page loaded, all scripts should be loaded now");
+    // console.log("RateScheduleManager:", window.RateScheduleManager);
+    // console.log("Modal:", window.Modal);
   </script>
 </body>
 </html>

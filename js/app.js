@@ -1,5 +1,5 @@
 window.addEventListener("DOMContentLoaded", () => {
-  console.log("✅ DOMContentLoaded fired");
+// console.log("✅ DOMContentLoaded fired");
   document.body.classList.remove("debug-cells");
   
   // Apply saved theme before anything renders
@@ -7,7 +7,7 @@ window.addEventListener("DOMContentLoaded", () => {
   
   const loaded = window.loadAppState && window.loadAppState();
   if (loaded) {
-    console.log("✅ Loaded saved state");
+    // console.log("✅ Loaded saved state");
     // Reapply theme in case it was loaded from state
     applyTheme(window.currentTheme || "dark");
   }
@@ -22,7 +22,7 @@ window.addEventListener("DOMContentLoaded", () => {
   // Trigger initial calculations (this will update the rendered cells)
   if (window.Calculations && window.Calculations.recalculate) {
     window.Calculations.recalculate().then(() => {
-      console.log("✅ Initial calculations complete");
+      // console.log("✅ Initial calculations complete");
     }).catch(err => {
       console.error("❌ Initial calculation failed:", err);
     });
@@ -66,7 +66,7 @@ window.setupSidebarToggle = function() {
   }
 
   function openSidebar() {
-    console.log("Opening sidebar");
+    // console.log("Opening sidebar");
     sidebar.classList.add("open");
     overlay.classList.add("open");
     mainContainer.classList.add("sidebar-open");
@@ -88,7 +88,7 @@ window.setupSidebarToggle = function() {
   }
 
   toggleBtn.addEventListener("click", (e) => {
-    console.log("Toggle button clicked");
+    // console.log("Toggle button clicked");
     e.preventDefault();
     if (sidebar.classList.contains("open")) {
       closeSidebar();
@@ -110,6 +110,7 @@ window.setupSidebarToggle = function() {
   }
 
   closeBtn.addEventListener("click", closeSidebar);
+  overlay.addEventListener("click", closeSidebar);
 };
 
 // Render palettes for tags and units (estimate types removed)
@@ -123,7 +124,7 @@ window.renderPalettes = function () {
 
 // Setup section buttons (sidebar)
 window.wireSetupButtons = function () {
-    console.log("wireSetupButtons called");
+    // console.log("wireSetupButtons called");
     // DEBUG: Check ResourceManager after all scripts load
     setTimeout(() => {
       if (!window.ResourceManager) {
@@ -131,7 +132,7 @@ window.wireSetupButtons = function () {
       } else if (typeof window.ResourceManager.openManager !== 'function') {
         console.error('[Resource Import] FATAL: window.ResourceManager.openManager is missing or not a function');
       } else {
-        console.log('[Resource Import] window.ResourceManager and openManager are available');
+        // console.log('[Resource Import] window.ResourceManager and openManager are available');
       }
     }, 1000);
   const rateBtn = document.getElementById("setupRateScheduleBtn");
@@ -142,16 +143,17 @@ window.wireSetupButtons = function () {
   const mandatoryWBSTasksBtn = document.getElementById("setupMandatoryWBSTasksBtn");
   const tagsBtn = document.getElementById("setupTagsBtn");
   const unitsBtn = document.getElementById("setupUnitsBtn");
+  const viewImportedJobLevelsBtn = document.getElementById("viewImportedJobLevelsBtn");
   const businessOrgBtn = document.getElementById("setupBusinessOrgBtn");
 
   if (rateBtn) {
-    console.log("Attaching onclick handler to Rate Schedule button");
+    // console.log("Attaching onclick handler to Rate Schedule button");
     rateBtn.onclick = () => {
-      console.log("Rate Schedule button clicked");
-      console.log("RateScheduleManager available:", window.RateScheduleManager);
-      console.log("Modal available:", window.Modal);
+      // console.log("Rate Schedule button clicked");
+      // console.log("RateScheduleManager available:", window.RateScheduleManager);
+      // console.log("Modal available:", window.Modal);
       if (window.RateScheduleManager && typeof window.RateScheduleManager.openManager === "function") {
-        console.log("Opening RateScheduleManager");
+        // console.log("Opening RateScheduleManager");
         window.RateScheduleManager.openManager();
       } else {
         console.error("RateScheduleManager not available or missing openManager function");
@@ -210,7 +212,15 @@ window.wireSetupButtons = function () {
 
   if (unitsBtn) {
     unitsBtn.onclick = () => {
-      alert("Unit Management is coming soon.");
+      if (window.UnitsManager && typeof UnitsManager.openManager === "function") {
+        UnitsManager.openManager();
+      }
+    };
+  }
+
+  if (viewImportedJobLevelsBtn) {
+    viewImportedJobLevelsBtn.onclick = () => {
+      openImportedJobLevelsViewer();
     };
   }
 
@@ -749,6 +759,217 @@ function openMandatoryWBSTasksSettings() {
         container._saveCallback();
       }
     }
+  });
+}
+
+// View Imported Job Levels
+function openImportedJobLevelsViewer() {
+  Modal.open({
+    title: "Imported Job Levels",
+    content: async (container) => {
+      container.innerHTML = "";
+      container.style.padding = "12px";
+      container.style.maxWidth = "800px";
+
+      const intro = document.createElement("p");
+      intro.textContent = "View job levels that have been imported from CSV files. These levels are available for use in rate tables and resource assignments.";
+      intro.style.marginBottom = "12px";
+      intro.style.color = "var(--text-muted)";
+      intro.style.fontSize = "10px";
+      container.appendChild(intro);
+
+      // Import section
+      const importSection = document.createElement("div");
+      importSection.style.display = "flex";
+      importSection.style.flexDirection = "column";
+      importSection.style.gap = "8px";
+      importSection.style.marginBottom = "16px";
+      importSection.style.padding = "12px";
+      importSection.style.border = "1px solid var(--border)";
+      importSection.style.borderRadius = "4px";
+      importSection.style.background = "var(--bg-panel)";
+
+      const importTitle = document.createElement("div");
+      importTitle.textContent = "Import Job Levels from CSV";
+      importTitle.style.fontSize = "12px";
+      importTitle.style.fontWeight = "600";
+      importTitle.style.marginBottom = "4px";
+      importSection.appendChild(importTitle);
+
+      const importInstructions = document.createElement("div");
+      importInstructions.style.fontSize = "10px";
+      importInstructions.style.color = "var(--text-muted)";
+      importInstructions.style.lineHeight = "1.4";
+      importInstructions.innerHTML = `
+        <strong>Expected CSV Format:</strong><br>
+        Job Lvl Code, Job Lvl Name<br>
+        <br>
+        <em>Example:</em><br>
+        E1, Vice President<br>
+        E2, Director<br>
+        P5, Senior Professional
+      `;
+      importSection.appendChild(importInstructions);
+
+      const fileInput = document.createElement("input");
+      fileInput.type = "file";
+      fileInput.accept = ".csv";
+      fileInput.style.padding = "6px";
+      fileInput.style.border = "1px solid var(--border)";
+      fileInput.style.borderRadius = "4px";
+      fileInput.style.background = "var(--bg)";
+      fileInput.style.color = "var(--text)";
+      fileInput.style.fontSize = "11px";
+      importSection.appendChild(fileInput);
+
+      container.appendChild(importSection);
+
+      // Function to render the levels table
+      async function renderLevelsTable() {
+        console.log("Rendering levels table...");
+        // Remove existing table if present
+        const existingTable = container.querySelector(".levels-table-container");
+        if (existingTable) {
+          existingTable.remove();
+        }
+
+        // Get imported job levels
+        const allLevels = await JobLevels.getAllLevels();
+        console.log("All levels:", allLevels.length);
+        const importedLevels = allLevels.filter(level => level.type === "imported");
+        console.log("Imported levels found:", importedLevels.length, importedLevels);
+
+        if (importedLevels.length === 0) {
+          const noData = document.createElement("div");
+          noData.textContent = "No imported job levels found. Upload a CSV file above to import levels.";
+          noData.style.textAlign = "center";
+          noData.style.padding = "40px";
+          noData.style.color = "var(--text-muted)";
+          noData.style.fontStyle = "italic";
+          noData.className = "levels-table-container";
+          container.appendChild(noData);
+          console.log("No imported levels, showing no data message");
+          return;
+        }
+
+        console.log("Creating table with", importedLevels.length, "levels");
+        // Create table...
+        const tableContainer = document.createElement("div");
+        tableContainer.className = "levels-table-container";
+        tableContainer.style.maxHeight = "400px";
+        tableContainer.style.overflowY = "auto";
+        tableContainer.style.border = "1px solid var(--border)";
+        tableContainer.style.borderRadius = "4px";
+        tableContainer.style.marginBottom = "12px";
+
+        const table = document.createElement("table");
+        table.style.width = "100%";
+        table.style.borderCollapse = "collapse";
+        table.style.fontSize = "11px";
+
+        // Header
+        const thead = document.createElement("thead");
+        thead.style.position = "sticky";
+        thead.style.top = "0";
+        thead.style.background = "var(--bg-panel)";
+        thead.style.zIndex = "1";
+
+        const headerRow = document.createElement("tr");
+        const headers = ["Job Lvl Code", "Job Lvl Name"];
+        headers.forEach(headerText => {
+          const th = document.createElement("th");
+          th.textContent = headerText;
+          th.style.padding = "8px 6px";
+          th.style.textAlign = "left";
+          th.style.borderBottom = "1px solid var(--border)";
+          th.style.fontWeight = "600";
+          th.style.color = "var(--text-muted)";
+          th.style.whiteSpace = "nowrap";
+          headerRow.appendChild(th);
+        });
+        thead.appendChild(headerRow);
+        table.appendChild(thead);
+
+        // Body
+        const tbody = document.createElement("tbody");
+        importedLevels.forEach((level, idx) => {
+          const row = document.createElement("tr");
+          row.style.borderBottom = "1px solid var(--border-muted)";
+          if (idx % 2 === 1) {
+            row.style.background = "var(--bg-hover)";
+          }
+
+          const cells = [
+            level.id || "",
+            level.label || ""
+          ];
+
+          cells.forEach(cellText => {
+            const td = document.createElement("td");
+            td.textContent = cellText;
+            td.style.padding = "6px";
+            td.style.whiteSpace = "nowrap";
+            td.style.overflow = "hidden";
+            td.style.textOverflow = "ellipsis";
+            td.style.maxWidth = "150px";
+            row.appendChild(td);
+          });
+
+          tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        tableContainer.appendChild(table);
+        container.appendChild(tableContainer);
+
+        // Clear all button
+        const clearBtn = document.createElement("button");
+        clearBtn.className = "btn btn-secondary";
+        clearBtn.textContent = "Clear All Imported Levels";
+        clearBtn.style.marginTop = "8px";
+        clearBtn.style.color = "#ef4444";
+        clearBtn.addEventListener("click", async () => {
+          if (confirm(`Clear all ${importedLevels.length} imported job levels? This will remove them from the system.`)) {
+            localStorage.removeItem("estimator_imported_job_levels_csv");
+            await JobLevels.loadDefaultLevels(true);
+            renderLevelsTable(); // Refresh the table
+          }
+        });
+        container.appendChild(clearBtn);
+      }
+
+      // Handle file import
+      fileInput.addEventListener("change", async (e) => {
+        console.log("File selected for import");
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Import the file
+        const result = await window.ResourceManager.importJobLevelsFromCsv(file);
+        console.log("Import result:", result);
+        if (result.success) {
+          alert(`Successfully imported ${result.count} job levels`);
+          // Reload job levels
+          if (typeof JobLevels !== 'undefined' && typeof JobLevels.loadDefaultLevels === 'function') {
+            console.log("Reloading job levels...");
+            await JobLevels.loadDefaultLevels(true);
+            console.log("Job levels reloaded");
+          }
+          // Refresh the table
+          console.log("Refreshing table...");
+          await renderLevelsTable();
+          console.log("Table refreshed");
+          // Clear the file input
+          fileInput.value = "";
+        } else {
+          alert(`Import failed: ${result.error}`);
+        }
+      });
+
+      // Initial render
+      await renderLevelsTable();
+    },
+    onSave: null,
+    onClose: () => Modal.close()
   });
 }
 

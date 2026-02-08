@@ -97,4 +97,4 @@ window.RateColumns = (function () {
   };
 })();
 
-console.log("✅ RateColumns loaded");
+// console.log("✅ RateColumns loaded");

@@ -45,14 +45,11 @@ window.BusinessOrgManager = (function () {
 
   function renderManager(container) {
     container.innerHTML = "";
-    container.style.padding = "12px";
+    container.className = "modal-container";
 
     // Instructions
     const instructions = document.createElement("div");
-    instructions.style.fontSize = "12px";
-    instructions.style.color = "var(--text-muted)";
-    instructions.style.marginBottom = "12px";
-    instructions.style.lineHeight = "1.5";
+    instructions.className = "modal-instructions";
     instructions.innerHTML = `
       <strong>Business Organization Structure:</strong><br>
       • Lvl1: Business Lines (Water, Energy, etc.)<br>
@@ -64,18 +61,10 @@ window.BusinessOrgManager = (function () {
 
     // Status and controls
     const statusDiv = document.createElement("div");
-    statusDiv.style.display = "flex";
-    statusDiv.style.justifyContent = "space-between";
-    statusDiv.style.alignItems = "center";
-    statusDiv.style.marginBottom = "12px";
-    statusDiv.style.padding = "8px";
-    statusDiv.style.background = "var(--bg-hover)";
-    statusDiv.style.borderRadius = "4px";
+    statusDiv.className = "status-bar";
 
     const statusText = document.createElement("span");
     statusText.textContent = `${orgUnits.length} organization units loaded`;
-    statusText.style.fontSize = "12px";
-    statusText.style.color = "var(--text-muted)";
 
     const controlsDiv = document.createElement("div");
     controlsDiv.style.display = "flex";
@@ -83,7 +72,7 @@ window.BusinessOrgManager = (function () {
 
     // Import CSV button
     const importBtn = document.createElement("button");
-    importBtn.className = "btn btn-secondary";
+    importBtn.className = "btn btn-secondary btn-small";
     importBtn.textContent = "Import CSV";
     importBtn.onclick = () => {
       const input = document.createElement("input");
@@ -92,33 +81,33 @@ window.BusinessOrgManager = (function () {
       input.onchange = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = (ev) => {
           const text = ev.target.result;
           const rows = text.split(/\r?\n/).filter(r => r.trim());
-          
+
           if (rows.length < 2) {
             alert("CSV file must have at least a header row and one data row");
             return;
           }
-          
+
           // Parse header row
           const headers = rows[0].split(",").map(h => h.trim().toLowerCase());
           const expectedHeaders = ["businessline_id", "businessline_name", "marketsubsector_id", "marketsubsector_name", "officelocation_id", "officelocation_name"];
-          
+
           // Check if headers match expected format
-          const headerMatch = expectedHeaders.every(expected => 
-            headers.includes(expected) || 
+          const headerMatch = expectedHeaders.every(expected =>
+            headers.includes(expected) ||
             headers.includes(expected.replace(/_/g, "")) ||
             headers.includes(expected.replace(/businessline/g, "business_line").replace(/marketsubsector/g, "market_subsector").replace(/officelocation/g, "office_location"))
           );
-          
+
           if (!headerMatch) {
             alert(`CSV headers don't match expected format.\n\nExpected: ${expectedHeaders.join(", ")}\n\nFound: ${headers.join(", ")}`);
             return;
           }
-          
+
           // Parse data rows (skip header)
           const newOrgUnits = [];
           for (let i = 1; i < rows.length; i++) {
@@ -134,7 +123,7 @@ window.BusinessOrgManager = (function () {
               });
             }
           }
-          
+
           if (newOrgUnits.length > 0) {
             orgUnits = newOrgUnits;
             saveOrgUnits(); // Save imported data
@@ -152,7 +141,7 @@ window.BusinessOrgManager = (function () {
 
     // Clear button
     const clearBtn = document.createElement("button");
-    clearBtn.className = "btn btn-secondary";
+    clearBtn.className = "btn btn-secondary btn-small";
     clearBtn.textContent = "Clear All";
     clearBtn.onclick = () => {
       if (confirm("Clear all business organization data? This cannot be undone.")) {
@@ -167,67 +156,75 @@ window.BusinessOrgManager = (function () {
     statusDiv.appendChild(controlsDiv);
     container.appendChild(statusDiv);
 
-    // Table header
+    // Scrollable table wrapper
+    const tableWrap = document.createElement("div");
+    tableWrap.style.flex = "1";
+    tableWrap.style.minHeight = "0";
+    tableWrap.style.overflow = "auto";
+
+    // Table
     const table = document.createElement("table");
-    table.style.width = "100%";
-    table.style.borderCollapse = "collapse";
-    table.style.marginTop = "12px";
+    table.className = "data-table";
+
     const thead = document.createElement("thead");
-    thead.innerHTML = `<tr>
-      <th style="padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); font-size: 12px;">Lvl1_ID</th>
-      <th style="padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); font-size: 12px;">Lvl1 Name</th>
-      <th style="padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); font-size: 12px;">Lvl2_ID</th>
-      <th style="padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); font-size: 12px;">Lvl2 Name</th>
-      <th style="padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); font-size: 12px;">Lvl3_ID</th>
-      <th style="padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); font-size: 12px;">Lvl3 Name</th>
-      <th style="padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; color: var(--text-muted); font-size: 12px; width: 40px;"></th>
-    </tr>`;
+    const headerRow = document.createElement("tr");
+    const headers = ["Lvl1_ID", "Lvl1 Name", "Lvl2_ID", "Lvl2 Name", "Lvl3_ID", "Lvl3 Name", ""];
+    headers.forEach(headerText => {
+      const th = document.createElement("th");
+      th.className = "table-header";
+      th.textContent = headerText;
+      th.style.position = "sticky";
+      th.style.top = "0";
+      th.style.zIndex = "1";
+      th.style.background = "var(--bg-panel)";
+      if (headerText === "") th.style.width = "40px";
+      headerRow.appendChild(th);
+    });
+    thead.appendChild(headerRow);
     table.appendChild(thead);
 
     // Table body
     const tbody = document.createElement("tbody");
     orgUnits.forEach((unit, idx) => {
       const row = document.createElement("tr");
-    ["lvl1_id", "lvl1_name", "lvl2_id", "lvl2_name", "lvl3_id", "lvl3_name"].forEach(key => {
+      row.className = "table-row";
+
+      ["lvl1_id", "lvl1_name", "lvl2_id", "lvl2_name", "lvl3_id", "lvl3_name"].forEach(key => {
         const cell = document.createElement("td");
+        cell.className = "table-cell";
         const input = document.createElement("input");
         input.type = "text";
+        input.className = "form-input";
         input.value = unit[key] || "";
         input.style.width = "100%";
-        input.style.padding = "4px 6px";
-        input.style.border = "1px solid var(--border-muted)";
-        input.style.borderRadius = "3px";
-        input.style.background = "var(--bg)";
-        input.style.color = "var(--text)";
-        input.style.fontSize = "12px";
-        input.oninput = () => { 
-          unit[key] = input.value; 
+        input.style.padding = "4px 6px"; // Table cell inputs need tighter padding
+        input.oninput = () => {
+          unit[key] = input.value;
           saveOrgUnits(); // Save changes immediately
         };
-        cell.style.padding = "4px 6px";
         cell.appendChild(input);
         row.appendChild(cell);
       });
+
       // Remove button
       const removeCell = document.createElement("td");
+      removeCell.className = "table-cell";
       const removeBtn = document.createElement("button");
-      removeBtn.className = "btn btn-secondary";
+      removeBtn.className = "btn btn-secondary btn-micro";
       removeBtn.textContent = "×";
       removeBtn.style.width = "28px";
-      removeBtn.style.padding = "2px";
-      removeBtn.style.fontSize = "14px";
       removeBtn.onclick = () => {
         orgUnits.splice(idx, 1);
         saveOrgUnits(); // Save after removal
         renderManager(container);
       };
-      removeCell.style.padding = "4px 6px";
       removeCell.appendChild(removeBtn);
       row.appendChild(removeCell);
       tbody.appendChild(row);
     });
     table.appendChild(tbody);
-    container.appendChild(table);
+    tableWrap.appendChild(table);
+    container.appendChild(tableWrap);
 
     // Add row button
     const addBtn = document.createElement("button");
@@ -242,5 +239,12 @@ window.BusinessOrgManager = (function () {
     container.appendChild(addBtn);
   }
 
-  return { openManager };
+  // Lookup org unit by lvl3_id
+  function getOrgByLvl3Id(lvl3Id) {
+    loadOrgUnits();
+    if (!lvl3Id) return null;
+    return orgUnits.find(u => u.lvl3_id === lvl3Id) || null;
+  }
+
+  return { openManager, getOrgByLvl3Id };
 })();

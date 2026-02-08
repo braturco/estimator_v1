@@ -160,6 +160,19 @@ window.RateTables = (function () {
     return tables[idx];
   }
 
+  function getDefaultTable() {
+    const tables = getCustomTables();
+    return tables.find(t => t.isDefault) || null;
+  }
+
+  function setDefaultTable(tableId) {
+    const tables = getCustomTables();
+    tables.forEach(t => {
+      t.isDefault = (t.id === tableId) ? !t.isDefault : false;
+    });
+    saveCustomTables(tables);
+  }
+
   return {
     getCustomTables,
     getAllTables,
@@ -170,8 +183,10 @@ window.RateTables = (function () {
     deleteCustomTable,
     setCostRates,
     setSellRates,
-    updateTableRates
+    updateTableRates,
+    getDefaultTable,
+    setDefaultTable
   };
 })();
 
-console.log("✅ RateTables module ready");
+// console.log("✅ RateTables module ready");

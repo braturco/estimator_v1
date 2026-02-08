@@ -4,6 +4,35 @@ window.Rates = (function () {
   let resources = null;
   let namedResources = null;
 
+  // Look up cost rate from imported cost rates table by CostRate_ID (e.g., "ONP6")
+  // Look up sell rates from a rate schedule by rateScheduleId + jobLevel
+  function lookupSellFromSchedule(rateScheduleId, jobLevel) {
+    if (!rateScheduleId || !jobLevel || !window.RateTables) return null;
+    try {
+      const tables = RateTables.getCustomTables();
+      const table = tables.find(t => t.id === rateScheduleId);
+      if (!table || !table.rates) return null;
+      const entry = table.rates[jobLevel];
+      if (!entry || !entry.standard) return null;
+      const reg = parseFloat(entry.standard.reg) || 0;
+      const ot = parseFloat(entry.standard.ot) || 0;
+      if (reg > 0 || ot > 0) return { reg, ot };
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
+  function lookupCostByCostRateId(costRateId) {
+    if (!costRateId) return null;
+    try {
+      const raw = localStorage.getItem("estimator_imported_rate_tables_v1");
+      if (!raw) return null;
+      const rateTables = JSON.parse(raw);
+      const match = rateTables.find(rt => rt.costRateId && rt.costRateId.toUpperCase() === costRateId.toUpperCase());
+      if (match && match.costRate > 0) return parseFloat(match.costRate);
+    } catch (e) { /* ignore */ }
+    return null;
+  }
+
   async function load() {
     if (resources) return resources;
     
@@ -126,8 +155,8 @@ window.Rates = (function () {
       }
       
       // Use "standard" tier for sell rates by default
-      const sellReg = rateEntry.standard?.reg || 120;
-      const sellOt = rateEntry.standard?.ot || (sellReg * 1.5);
+      const sellReg = rateEntry.standard?.reg || 0;
+      const sellOt = rateEntry.standard?.ot || 0;
 
       return {
         costRegular: costReg,
@@ -138,8 +167,8 @@ window.Rates = (function () {
     } catch (e) {
       console.warn("Could not load rates from rate tables:", e);
       // Fallback to hardcoded rates from resource object
-      const costRegular = r.cost || 60;
-      const sellRegular = r.sell || 120;
+      const costRegular = r.cost || 0;
+      const sellRegular = r.sell || 0;
       const otMult = r.otMultiplier || 1.5;
       return {
         costRegular,
@@ -152,67 +181,30 @@ window.Rates = (function () {
 
   async function resolveRates(resource) {
     if (!resource) return null;
-    const actualResourceId = resource.resourceId || resource.id;
-
-    let baseRates = null;
-    const hasExplicitCost = Number.isFinite(resource.costRate) && resource.costRate > 0;
-    const hasExplicitSell = Number.isFinite(resource.chargeoutRate) && resource.chargeoutRate > 0;
     const otMult = resource.otMultiplier || 1.5;
 
-    if (hasExplicitCost || hasExplicitSell) {
-      const costRegular = hasExplicitCost ? resource.costRate : 60;
-      const sellRegular = hasExplicitSell ? resource.chargeoutRate : 120;
-      baseRates = {
-        costRegular,
-        costOT: costRegular * otMult,
-        sellRegular,
-        sellOT: sellRegular * otMult
-      };
-    } else {
-      try {
-        baseRates = await getRates(actualResourceId);
-      } catch (e) {
-        baseRates = null;
-      }
+    // --- Cost: imported cost rates table → resource.costRate → 0 ---
+    const lookedUpCost = lookupCostByCostRateId(resource.costRateId);
+    let costRegular = resource.costRate || lookedUpCost || 0;
+    let costOT = costRegular * otMult;
 
-      if (!baseRates) {
-        const costRegular = resource.costRate || 60;
-        const sellRegular = resource.chargeoutRate || 120;
-        baseRates = {
-          costRegular,
-          costOT: costRegular * otMult,
-          sellRegular,
-          sellOT: sellRegular * otMult
-        };
-      }
-    }
+    // --- Sell: rate schedule (by jobLevel) → 0 ---
+    const scheduleSell = lookupSellFromSchedule(resource.rateScheduleId, resource.jobLevel);
+    let sellRegular = scheduleSell ? scheduleSell.reg : 0;
+    let sellOT = scheduleSell ? scheduleSell.ot : 0;
 
-    let costRegular = baseRates.costRegular;
-    let costOT = baseRates.costOT;
-    let sellRegular = baseRates.sellRegular;
-    let sellOT = baseRates.sellOT;
-
+    // --- Overrides take priority ---
     if (resource.overrideCostReg !== undefined) {
       costRegular = resource.overrideCostReg;
-      if (resource.overrideCostOT === undefined) {
-        costOT = costRegular * 1.5;
-      }
+      if (resource.overrideCostOT === undefined) costOT = costRegular * 1.5;
     }
-
-    if (resource.overrideCostOT !== undefined) {
-      costOT = resource.overrideCostOT;
-    }
+    if (resource.overrideCostOT !== undefined) costOT = resource.overrideCostOT;
 
     if (resource.overrideSellReg !== undefined) {
       sellRegular = resource.overrideSellReg;
-      if (resource.overrideSellOT === undefined) {
-        sellOT = sellRegular * 1.5;
-      }
+      if (resource.overrideSellOT === undefined) sellOT = sellRegular * 1.5;
     }
-
-    if (resource.overrideSellOT !== undefined) {
-      sellOT = resource.overrideSellOT;
-    }
+    if (resource.overrideSellOT !== undefined) sellOT = resource.overrideSellOT;
 
     return { costRegular, costOT, sellRegular, sellOT };
   }

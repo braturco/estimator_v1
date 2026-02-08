@@ -182,4 +182,4 @@ window.LaborExpansion = (function () {
   return { renderExpansion };
 })();
 
-console.log("✅ LaborExpansion module loaded");
+// console.log("✅ LaborExpansion module loaded");

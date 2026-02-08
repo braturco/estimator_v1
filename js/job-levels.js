@@ -12,8 +12,8 @@ window.JobLevels = (function () {
   const LEVEL_ORDER_KEY = "estimator_level_order_v1";
 
   // Load default job levels from JSON file
-  async function loadDefaultLevels() {
-    if (defaultLevelsLoaded) return;
+  async function loadDefaultLevels(forceReload = false) {
+    if (defaultLevelsLoaded && !forceReload) return;
     
     // Check for imported CSV data first
     const importedKey = "estimator_imported_job_levels_csv";
@@ -21,7 +21,16 @@ window.JobLevels = (function () {
     if (importedData) {
       try {
         const parsed = JSON.parse(importedData);
-        DEFAULT_LEVELS = parsed;
+        // Map imported levels to expected format (code -> id)
+        DEFAULT_LEVELS = parsed.map(level => ({
+          ...level,
+          id: level.code || level.id,
+          costRegular: level.costRate || level.costRegular || 0,
+          costOT: (level.costRate || 0) * 1.5, // Default OT multiplier
+          sellRegular: level.chargeoutRate || level.sellRegular || 0,
+          sellOT: (level.chargeoutRate || 0) * 1.5, // Default OT multiplier
+          type: "imported"
+        }));
         defaultLevelsLoaded = true;
         console.log("✅ Loaded", DEFAULT_LEVELS.length, "job levels from imported CSV");
         return;
@@ -51,9 +60,6 @@ window.JobLevels = (function () {
       }
       defaultLevelsLoaded = true;
     }
-  }
-    
-    defaultLevelsLoaded = true;
   }
 
   function getDefaultLevels() {
@@ -139,11 +145,11 @@ window.JobLevels = (function () {
     };
   }
 
-  function addCustomLevel(label, costReg, costOT, sellRates, sellReg, sellOT) {
+  function addCustomLevel(id, label, costReg, costOT, sellRates, sellReg, sellOT) {
     const levels = getCustomLevels();
     const normalizedSellRates = normalizeSellRates(sellRates, sellReg, sellOT);
     const newLevel = {
-      id: "custom-" + crypto.randomUUID(),
+      id: id || ("custom-" + crypto.randomUUID()),
       label,
       costRegular: parseFloat(costReg) || 0,
       costOT: parseFloat(costOT) || 0,
@@ -157,13 +163,14 @@ window.JobLevels = (function () {
     return newLevel;
   }
 
-  function updateCustomLevel(id, label, costReg, costOT, sellRates, sellReg, sellOT) {
+  function updateCustomLevel(id, newId, label, costReg, costOT, sellRates, sellReg, sellOT) {
     const levels = getCustomLevels();
     const idx = levels.findIndex(l => l.id === id);
     if (idx !== -1) {
       const normalizedSellRates = normalizeSellRates(sellRates, sellReg, sellOT);
       levels[idx] = {
         ...levels[idx],
+        id: newId || levels[idx].id,
         label,
         costRegular: parseFloat(costReg) || 0,
         costOT: parseFloat(costOT) || 0,
@@ -212,34 +219,23 @@ window.JobLevels = (function () {
     }
   }
 
-  function getSellRates(levelId, columnId = "standard") {
-    const level = getLevelById(levelId);
-    if (!level) return null;
-
-    if (level.sellRates && level.sellRates[columnId]) {
-      return {
-        regular: level.sellRates[columnId].regular,
-        ot: level.sellRates[columnId].ot
-      };
+  function getImportedLevels() {
+    try {
+      const raw = localStorage.getItem("estimator_imported_job_levels_csv");
+      return raw ? JSON.parse(raw) : [];
+    } catch (e) {
+      console.warn("Failed to load imported job levels", e);
+      return [];
     }
-
-    if (level.sellRegular && level.sellOT) {
-      return {
-        regular: level.sellRegular,
-        ot: level.sellOT
-      };
-    }
-
-    return null;
   }
 
   return {
     loadDefaultLevels,
     getDefaultLevels,
     getCustomLevels,
+    getImportedLevels,
     getAllLevels,
     getLevelById,
-    getSellRates,
     addCustomLevel,
     updateCustomLevel,
     deleteCustomLevel,
@@ -248,6 +244,6 @@ window.JobLevels = (function () {
   };
 })();
 
-console.log("✅ JobLevels module ready");
+// console.log("✅ JobLevels module ready");
 
-console.log("✅ JobLevels loaded");
+// console.log("✅ JobLevels loaded");

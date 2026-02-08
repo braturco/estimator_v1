@@ -1,6 +1,6 @@
 // calculations.js — Calculate costs, revenues, and margins for WBS nodes
 
-console.log("🧮 Loading calculations.js");
+// console.log("🧮 Loading calculations.js");
 
 window.Calculations = (function () {
   
@@ -66,10 +66,35 @@ window.Calculations = (function () {
       }
     }
 
+    // --- Unit items from activities ---
+    let unitLaborReg = 0, unitLaborOT = 0, unitSubsCost = 0, unitExpCost = 0, unitRevenue = 0;
+
+    if (entry && Array.isArray(entry.activities)) {
+      for (const activity of entry.activities) {
+        if (activity.unitItems) {
+          for (const ui of activity.unitItems) {
+            const qty = Number(ui.qty || 0);
+            if (qty === 0) continue;
+            unitLaborReg += (ui.laborCostReg || 0) * qty;
+            unitLaborOT += (ui.laborCostOT || 0) * qty;
+            unitSubsCost += (ui.subsCost || 0) * qty;
+            unitExpCost += (ui.expenseCost || 0) * qty;
+            unitRevenue += (ui.sellPerUnit || 0) * qty;
+          }
+        }
+      }
+    }
+
+    // Fold unit labor into direct labor (so burden applies)
+    directLaborReg += unitLaborReg;
+    directLaborOT += unitLaborOT;
+    revenue += unitRevenue;
+
     const rawLabor = directLaborReg + directLaborOT;
 
-    const subs = Number(node.subcontractors || 0);
-    const odc = Number(node.odc || 0);
+    // Add unit subs/expenses to direct subs/odc
+    const subs = Number(node.subcontractors || 0) + unitSubsCost;
+    const odc = Number(node.odc || 0) + unitExpCost;
     const subsSell = Number(node.subcontractorsSell || 0);
     const odcSell = Number(node.odcSell || 0);
 
@@ -86,6 +111,14 @@ window.Calculations = (function () {
 
     const burdenedLabor = rawLabor + fringeBurden + ohBurden;
     const totalCost = burdenedLabor + subs + odc;
+
+    // Unit-specific burden (for aggregate display mode)
+    const unitFringe = (unitLaborReg * fringeRegRate) + (unitLaborOT * fringeOtRate);
+    const unitOH = (unitLaborReg * ohRegRate) + (unitLaborOT * ohOtRate);
+    const unitLaborRaw = unitLaborReg + unitLaborOT;
+    const unitBurdenedLabor = unitLaborRaw + unitFringe + unitOH;
+    const unitsCost = unitBurdenedLabor + unitSubsCost + unitExpCost;
+    const unitsSell = unitRevenue;
 
     const dlm = rawLabor > 0 ? (netRevenue / rawLabor) : 0;
     const pcm = netRevenue - rawLabor - fringeBurden;
@@ -111,7 +144,15 @@ window.Calculations = (function () {
       totalCost,
       netMargin,
       nmPct,
-      gmPct
+      gmPct,
+      // Unit display fields
+      unitsCost,
+      unitsSell,
+      unitsLaborRaw: unitLaborRaw,
+      unitsSubsCost: unitSubsCost,
+      unitsExpenseCost: unitExpCost,
+      unitsFringeBurden: unitFringe,
+      unitsOHBurden: unitOH
     };
   }
 
@@ -134,7 +175,14 @@ window.Calculations = (function () {
       totalCost: 0,
       netMargin: 0,
       nmPct: 0,
-      gmPct: 0
+      gmPct: 0,
+      unitsCost: 0,
+      unitsSell: 0,
+      unitsLaborRaw: 0,
+      unitsSubsCost: 0,
+      unitsExpenseCost: 0,
+      unitsFringeBurden: 0,
+      unitsOHBurden: 0
     };
 
     if (!node.children || node.children.length === 0) {
@@ -156,6 +204,13 @@ window.Calculations = (function () {
       totals.burdenedLabor += Number(child.burdenedLabor || 0);
       totals.totalCost += Number(child.totalCost || 0);
       totals.netMargin += Number(child.netMargin || 0);
+      totals.unitsCost += Number(child.unitsCost || 0);
+      totals.unitsSell += Number(child.unitsSell || 0);
+      totals.unitsLaborRaw += Number(child.unitsLaborRaw || 0);
+      totals.unitsSubsCost += Number(child.unitsSubsCost || 0);
+      totals.unitsExpenseCost += Number(child.unitsExpenseCost || 0);
+      totals.unitsFringeBurden += Number(child.unitsFringeBurden || 0);
+      totals.unitsOHBurden += Number(child.unitsOHBurden || 0);
     }
 
     totals.dlm = totals.directLabor > 0 ? (totals.netRevenue / totals.directLabor) : 0;
@@ -186,13 +241,13 @@ window.Calculations = (function () {
 
   // Calculate entire WBS
   async function calculateWBS() {
-    console.log("🧮 Calculating WBS...");
+    // console.log("🧮 Calculating WBS...");
     
     for (const node of WBS_DATA) {
       await calculateNode(node);
     }
     
-    console.log("✅ WBS calculations complete");
+    // console.log("✅ WBS calculations complete");
   }
 
   // Update labor rollup cells (the hours displayed for each resource)
@@ -273,7 +328,7 @@ window.Calculations = (function () {
     }
 
     walkNodes(window.WBS_DATA);
-    console.log("✅ Labor rollup cells updated");
+    // console.log("✅ Labor rollup cells updated");
   }
 
   // Update financial cells without full re-render (preserves focus)
@@ -281,11 +336,18 @@ window.Calculations = (function () {
     const container = document.getElementById("wbsContainer");
     if (!container) return;
 
+    const unitsAgg = window.unitsDisplayMode === "aggregate";
+    const unitsCols = unitsAgg ? [
+      { key: "unitsCost", format: "money" },
+      { key: "unitsSell", format: "money" },
+    ] : [];
+
     const financialColumns = window.financialMode === "simple"
       ? [
           { key: "grossRevenue", format: "money" },
           { key: "subcontractors", format: "money" },
           { key: "odc", format: "money" },
+          ...unitsCols,
           { key: "directLabor", format: "money" },
           { key: "totalCost", format: "money" },
           { key: "netRevenue", format: "money" },
@@ -296,6 +358,7 @@ window.Calculations = (function () {
           { key: "grossRevenue", format: "money" },
           { key: "subcontractors", format: "money" },
           { key: "odc", format: "money" },
+          ...unitsCols,
           { key: "directLabor", format: "money" },
           { key: "netRevenue", format: "money" },
           { key: "dlm", format: "money" },
@@ -310,6 +373,21 @@ window.Calculations = (function () {
           { key: "gmPct", format: "percent" }
         ];
 
+    // In aggregate mode, adjust display values to exclude unit components
+    function getDisplayValue(node, key) {
+      if (unitsAgg) {
+        switch (key) {
+          case "directLabor":    return (node.directLabor || 0) - (node.unitsLaborRaw || 0);
+          case "subcontractors": return (node.subcontractors || 0) - (node.unitsSubsCost || 0);
+          case "odc":            return (node.odc || 0) - (node.unitsExpenseCost || 0);
+          case "fringeBurden":   return (node.fringeBurden || 0) - (node.unitsFringeBurden || 0);
+          case "ohBurden":       return (node.ohBurden || 0) - (node.unitsOHBurden || 0);
+          case "burdenedLabor":  return (node.burdenedLabor || 0) - (node.unitsLaborRaw || 0) - (node.unitsFringeBurden || 0) - (node.unitsOHBurden || 0);
+        }
+      }
+      return node[key] || 0;
+    }
+
     const formatByType = (value, type) => {
       if (type === "percent") return formatPercent(value);
       return formatMoney(value);
@@ -322,15 +400,14 @@ window.Calculations = (function () {
     function updateNodeRow(node) {
       const nodeRow = container.querySelector(`.wbs-row[data-id="${node.id}"]:not(.labor-activity-row)`);
       if (nodeRow) {
-        console.log(`📊 Updating node ${node.id} (${node.name}): DL=${node.directLabor}, Rev=${node.netRevenue}`);
+        // console.log(`📊 Updating node ${node.id} (${node.name}): DL=${node.directLabor}, Rev=${node.netRevenue}`);
         const cells = nodeRow.querySelectorAll(".wbs-fin-cell");
-        console.log(`   Found ${cells.length} cells in row`);
+        // console.log(`   Found ${cells.length} cells in row`);
         if (cells.length >= financialColumns.length) {
-          console.log(`   Before: cells[0]="${cells[0].textContent}", setting to "${formatByType(node[financialColumns[0].key], financialColumns[0].format)}"`);
+          // console.log(`   Before: cells[0]="${cells[0].textContent}", setting to "${formatByType(node[financialColumns[0].key], financialColumns[0].format)}"`);
           financialColumns.forEach((col, idx) => {
-            cells[idx].textContent = formatByType(node[col.key], col.format);
+            cells[idx].textContent = formatByType(getDisplayValue(node, col.key), col.format);
           });
-          console.log(`   After: cells[0]="${cells[0].textContent}"`);
           // Force repaint
           nodeRow.offsetHeight;
         } else {
@@ -360,7 +437,7 @@ window.Calculations = (function () {
         const cells = row.querySelectorAll(".wbs-fin-cell");
         if (cells.length >= financialColumns.length) {
           financialColumns.forEach((col, idx) => {
-            cells[idx].textContent = formatByType(node[col.key], col.format);
+            cells[idx].textContent = formatByType(getDisplayValue(node, col.key), col.format);
           });
         }
       }
@@ -401,11 +478,30 @@ window.Calculations = (function () {
                 revenue += regHours * rates.sellRegular + otHours * rates.sellOT;
               }
 
+              // Unit items from this activity
+              let aUnitLaborReg = 0, aUnitLaborOT = 0, aUnitSubs = 0, aUnitExp = 0, aUnitRev = 0;
+              if (activity.unitItems) {
+                for (const ui of activity.unitItems) {
+                  const qty = Number(ui.qty || 0);
+                  if (qty === 0) continue;
+                  aUnitLaborReg += (ui.laborCostReg || 0) * qty;
+                  aUnitLaborOT += (ui.laborCostOT || 0) * qty;
+                  aUnitSubs += (ui.subsCost || 0) * qty;
+                  aUnitExp += (ui.expenseCost || 0) * qty;
+                  aUnitRev += (ui.sellPerUnit || 0) * qty;
+                }
+              }
+
+              // Fold unit labor into activity labor
+              directLaborReg += aUnitLaborReg;
+              directLaborOT += aUnitLaborOT;
+              revenue += aUnitRev;
+
               // Get expense values from this activity
               const subsItems = activity.expenses?.subs || [];
               const odcItems = activity.expenses?.odc || [];
-              const subs = subsItems.reduce((sum, item) => sum + Number(item.cost || 0), 0);
-              const odc = odcItems.reduce((sum, item) => sum + Number(item.cost || 0), 0);
+              const subs = subsItems.reduce((sum, item) => sum + Number(item.cost || 0), 0) + aUnitSubs;
+              const odc = odcItems.reduce((sum, item) => sum + Number(item.cost || 0), 0) + aUnitExp;
               const subsSell = subsItems.reduce((sum, item) => sum + Number(item.sell || 0), 0);
               const odcSell = odcItems.reduce((sum, item) => sum + Number(item.sell || 0), 0);
 
@@ -422,6 +518,13 @@ window.Calculations = (function () {
               const ohBurden = (directLaborReg * ohRegRate) + (directLaborOT * ohOtRate);
               const burdenedLabor = rawLabor + fringeBurden + ohBurden;
               const totalCost = burdenedLabor + subs + odc;
+
+              // Unit-specific burden for aggregate display
+              const aUnitFringe = (aUnitLaborReg * fringeRegRate) + (aUnitLaborOT * fringeOtRate);
+              const aUnitOH = (aUnitLaborReg * ohRegRate) + (aUnitLaborOT * ohOtRate);
+              const aUnitLaborRaw = aUnitLaborReg + aUnitLaborOT;
+              const aUnitBurdened = aUnitLaborRaw + aUnitFringe + aUnitOH;
+
               const dlm = rawLabor > 0 ? (netRevenue / rawLabor) : 0;
               const pcm = netRevenue - rawLabor - fringeBurden;
               const pcmPct = grossRevenue > 0 ? (pcm / grossRevenue) : 0;
@@ -444,21 +547,27 @@ window.Calculations = (function () {
                 totalCost,
                 netMargin,
                 nmPct,
-                gmPct
+                gmPct,
+                unitsCost: aUnitBurdened + aUnitSubs + aUnitExp,
+                unitsSell: aUnitRev,
+                unitsLaborRaw: aUnitLaborRaw,
+                unitsSubsCost: aUnitSubs,
+                unitsExpenseCost: aUnitExp,
+                unitsFringeBurden: aUnitFringe,
+                unitsOHBurden: aUnitOH
               };
 
-              console.log(`💵 Activity ${activity.name} financials:`, {
-                subs,
-                odc,
-                rawLabor,
-                directLabor: activityFinancials.directLabor
-              });
+              // console.log(`💵 Activity ${activity.name} financials:`, {
+              //   subs,
+              //   odc,
+              //   rawLabor,
+              //   directLabor: activityFinancials.directLabor
+              // });
 
               if (cells.length >= financialColumns.length) {
                 financialColumns.forEach((col, idx) => {
-                  const value = activityFinancials[col.key];
-                  console.log(`  Col ${idx} "${col.key}": ${value} → ${formatByType(value, col.format)}`);
-                  
+                  const value = getDisplayValue(activityFinancials, col.key);
+
                   // Special handling for expense columns - preserve icon if it exists
                   if (col.key === "subcontractors" || col.key === "odc") {
                     const type = col.key === "subcontractors" ? "subs" : "odc";
@@ -501,11 +610,11 @@ window.Calculations = (function () {
 
   // Recalculate without re-rendering (preserves focus)
   async function recalculate() {
-    console.log("🔄 Starting recalculate...");
+    // console.log("🔄 Starting recalculate...");
     await calculateWBS();
-    console.log("✅ WBS calculated, now updating cells...");
+    // console.log("✅ WBS calculated, now updating cells...");
     await updateFinancialCells();
-    console.log("✅ Cells updated - DO NOT CALL renderWBS or it will wipe out updates!");
+    // console.log("✅ Cells updated - DO NOT CALL renderWBS or it will wipe out updates!");
     
     // DO NOT call renderWBS here - it would wipe out our updates
   }

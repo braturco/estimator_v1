@@ -1,13 +1,13 @@
 // Resource Manager — CRUD for labor resources with categories (standard/named/custom)
 // DEBUG: resource-manager.js loaded
-console.log('[Resource Import] resource-manager.js loaded');
+// console.log('[Resource Import] resource-manager.js loaded');
 // Resource Manager — CRUD for labor resources with categories (standard/named/custom)
 // DEBUG: resource-manager.js loaded
-console.log('[Resource Import] resource-manager.js loaded');
+// console.log('[Resource Import] resource-manager.js loaded');
 
 window.ResourceManager = (function () {
   // DEBUG: ResourceManager assigned
-  console.log('[Resource Import] window.ResourceManager assigned');
+  // console.log('[Resource Import] window.ResourceManager assigned');
   const CUSTOM_RESOURCES_KEY = "estimator_custom_resources_v1";
   const IMPORTED_NAMED_RESOURCES_KEY = "estimator_imported_named_resources_v1";
 
@@ -83,6 +83,7 @@ window.ResourceManager = (function () {
       return [];
     }
   }
+
 
   function saveImportedNamedResources(resources) {
     try {
@@ -199,100 +200,67 @@ window.ResourceManager = (function () {
     });
   }
 
-  // Import resources from CSV file
-  function importResourcesFromCsv(file) {
-    return new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const csvText = e.target.result;
-          const resources = parseResourcesCSV(csvText);
-          if (resources.length > 0) {
-            // Save to localStorage as imported resources
-            const key = "estimator_imported_resources_csv";
-            localStorage.setItem(key, JSON.stringify(resources));
-            resolve({ success: true, count: resources.length });
-          } else {
-            resolve({ success: false, error: "No valid resources found in CSV" });
-          }
-        } catch (err) {
-          resolve({ success: false, error: err.message });
-        }
-      };
-      reader.onerror = () => {
-        resolve({ success: false, error: "Failed to read file" });
-      };
-      reader.readAsText(file);
-    });
-  }
 
   // Import job levels from CSV file
   function importJobLevelsFromCsv(file) {
     return new Promise((resolve) => {
+      if (!file) {
+        resolve({ success: false, error: "No file provided" });
+        return;
+      }
+
+      // Validate file type
+      if (!file.name.toLowerCase().endsWith('.csv')) {
+        resolve({ success: false, error: "Please select a CSV file" });
+        return;
+      }
+
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const csvText = e.target.result;
+
+          // Validate CSV has content
+          if (!csvText || csvText.trim().length === 0) {
+            resolve({ success: false, error: "CSV file is empty" });
+            return;
+          }
+
           const jobLevels = parseJobLevelsCSV(csvText);
+
           if (jobLevels.length > 0) {
             // Save to localStorage as imported job levels
             const key = "estimator_imported_job_levels_csv";
             localStorage.setItem(key, JSON.stringify(jobLevels));
-            resolve({ success: true, count: jobLevels.length });
+            console.log(`✅ Successfully imported ${jobLevels.length} job levels:`, jobLevels);
+            resolve({ success: true, count: jobLevels.length, data: jobLevels });
           } else {
-            resolve({ success: false, error: "No valid job levels found in CSV" });
+            resolve({
+              success: false,
+              error: "No valid job levels found. CSV must have 'Job Lvl Code' and 'Job Lvl Name' columns with at least one data row."
+            });
           }
         } catch (err) {
-          resolve({ success: false, error: err.message });
+          console.error("CSV import error:", err);
+          resolve({ success: false, error: `Failed to parse CSV: ${err.message}` });
         }
       };
-      reader.onerror = () => {
-        resolve({ success: false, error: "Failed to read file" });
+      reader.onerror = (err) => {
+        console.error("File read error:", err);
+        resolve({ success: false, error: `Failed to read file: ${err.message || 'Unknown error'}` });
       };
       reader.readAsText(file);
     });
   }
 
-  // Parse resources CSV
-  function parseResourcesCSV(csvText) {
-    const lines = csvText.trim().split('\n');
-    if (lines.length < 2) return [];
-
-    let headerLine = lines[0].replace(/^\uFEFF/, '').trim();
-    const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
-    const expectedHeaders = ['id', 'label', 'jobfamily', 'joblevel', 'cost', 'sell', 'otmultiplier', 'officelocation'];
-
-    const resources = [];
-
-    for (let i = 1; i < lines.length; i++) {
-      const line = lines[i].trim();
-      if (!line) continue;
-
-      const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
-
-      const resource = {
-        id: cells[headers.indexOf('id')] || '',
-        label: cells[headers.indexOf('label')] || '',
-        jobFamily: cells[headers.indexOf('jobfamily')] || '',
-        jobLevel: cells[headers.indexOf('joblevel')] || '',
-        cost: parseFloat(cells[headers.indexOf('cost')] || 0),
-        sell: parseFloat(cells[headers.indexOf('sell')] || 0),
-        otMultiplier: parseFloat(cells[headers.indexOf('otmultiplier')] || 1.5),
-        officeLocation: cells[headers.indexOf('officelocation')] || ''
-      };
-
-      if (resource.id && resource.label) {
-        resources.push(resource);
-      }
-    }
-
-    return resources;
-  }
 
   // Parse job levels CSV
   function parseJobLevelsCSV(csvText) {
     const lines = csvText.trim().split('\n');
-    if (lines.length < 2) return [];
+    if (lines.length < 2) {
+      console.warn("CSV has no data rows (only header or empty)");
+      return [];
+    }
 
     let headerLine = lines[0].replace(/^\uFEFF/, '').trim();
     const headers = headerLine.split(',').map(h => h.trim().toLowerCase());
@@ -306,7 +274,22 @@ window.ResourceManager = (function () {
       return -1;
     }
 
+    // Find indices for required columns
+    const codeIdx = findHeaderIndex(['code', 'job lvl code', 'job_lvl']);
+    const labelIdx = findHeaderIndex(['label', 'name', 'job lvl name']);
+
+    // Validate required columns
+    if (codeIdx === -1) {
+      console.error("CSV missing required column: Job Lvl Code (or 'code', 'job_lvl')");
+      throw new Error("Missing required column: Job Lvl Code");
+    }
+    if (labelIdx === -1) {
+      console.error("CSV missing required column: Job Lvl Name (or 'name', 'label')");
+      throw new Error("Missing required column: Job Lvl Name");
+    }
+
     const jobLevels = [];
+    const skippedRows = [];
 
     for (let i = 1; i < lines.length; i++) {
       const line = lines[i].trim();
@@ -314,19 +297,31 @@ window.ResourceManager = (function () {
 
       const cells = line.split(',').map(c => c.trim().replace(/^"(.*)"$/, '$1'));
 
+      const code = codeIdx >= 0 ? cells[codeIdx] : '';
+      const label = labelIdx >= 0 ? cells[labelIdx] : '';
+
       const jobLevel = {
-        code: cells[findHeaderIndex(['code', 'job lvl code'])] || '',
-        label: cells[findHeaderIndex(['label', 'name', 'job lvl name'])] || '',
-        jobFamily: cells[findHeaderIndex(['jobfamily', 'job family'])] || '',
-        jobLevel: cells[findHeaderIndex(['joblevel', 'job level'])] || '',
-        costRate: parseFloat(cells[findHeaderIndex(['costrate', 'cost rate', 'cost'])] || 0),
-        chargeoutRate: parseFloat(cells[findHeaderIndex(['chargeoutrate', 'chargeout rate', 'sell', 'chargeout'])] || 0)
+        code,
+        label,
+        // Handle optional 3rd column for job family, even if no header
+        jobFamily: cells.length > 2 && codeIdx !== 2 && labelIdx !== 2 ? cells[2] : '',
+        jobLevel: '',
+        costRate: 0,
+        chargeoutRate: 0
       };
 
       if (jobLevel.code && jobLevel.label) {
         jobLevels.push(jobLevel);
+      } else {
+        skippedRows.push({ row: i + 1, code, label, reason: !code ? "missing code" : "missing label" });
       }
     }
+
+    if (skippedRows.length > 0) {
+      console.warn(`Skipped ${skippedRows.length} invalid rows:`, skippedRows);
+    }
+
+    console.log(`✅ Parsed ${jobLevels.length} valid job levels from CSV`);
 
     return jobLevels;
   }
@@ -379,19 +374,14 @@ window.ResourceManager = (function () {
       title: "Import Employee Resources",
       content: (container) => {
         container.innerHTML = "";
-        container.style.padding = "16px";
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.gap = "20px";
+        container.className = "modal-container";
 
         // Instructions
         const instructions = document.createElement("div");
-        instructions.style.fontSize = "12px";
-        instructions.style.color = "var(--text-muted)";
-        instructions.style.lineHeight = "1.6";
+        instructions.className = "modal-instructions";
         instructions.innerHTML = `
           <strong>Expected CSV Columns:</strong><br>
-          Rate Lookup, Employee ID, Name, Job Level, Role, Lvl3
+          Rate Lookup, Employee ID, Name, Job Level, Role, Lvl3, Location
         `;
         container.appendChild(instructions);
 
@@ -413,18 +403,12 @@ window.ResourceManager = (function () {
 
         const urlLabel = document.createElement("label");
         urlLabel.textContent = "SharePoint URL";
-        urlLabel.style.fontSize = "12px";
-        urlLabel.style.fontWeight = "600";
+        urlLabel.className = "modal-section-title";
 
         const urlInput = document.createElement("input");
         urlInput.type = "text";
         urlInput.placeholder = "https://sharepoint.com/path/to/employees.csv";
-        urlInput.style.padding = "8px";
-        urlInput.style.border = "1px solid var(--border)";
-        urlInput.style.borderRadius = "4px";
-        urlInput.style.background = "var(--bg)";
-        urlInput.style.color = "var(--text)";
-        urlInput.style.fontSize = "12px";
+        urlInput.className = "form-input";
 
         const urlBtn = document.createElement("button");
         urlBtn.className = "btn btn-primary";
@@ -457,10 +441,8 @@ window.ResourceManager = (function () {
         // Divider
         const divider = document.createElement("div");
         divider.textContent = "OR";
+        divider.className = "modal-section-title";
         divider.style.textAlign = "center";
-        divider.style.color = "var(--text-muted)";
-        divider.style.fontSize = "12px";
-        divider.style.fontWeight = "600";
         container.appendChild(divider);
 
         // File upload section
@@ -471,18 +453,12 @@ window.ResourceManager = (function () {
 
         const fileLabel = document.createElement("label");
         fileLabel.textContent = "Upload CSV File";
-        fileLabel.style.fontSize = "12px";
-        fileLabel.style.fontWeight = "600";
+        fileLabel.className = "modal-section-title";
 
         const fileInput = document.createElement("input");
         fileInput.type = "file";
         fileInput.accept = ".csv";
-        fileInput.style.padding = "8px";
-        fileInput.style.border = "1px solid var(--border)";
-        fileInput.style.borderRadius = "4px";
-        fileInput.style.background = "var(--bg)";
-        fileInput.style.color = "var(--text)";
-        fileInput.style.fontSize = "12px";
+        fileInput.className = "form-input";
 
         fileInput.addEventListener("change", async (e) => {
           const file = e.target.files[0];
@@ -506,93 +482,26 @@ window.ResourceManager = (function () {
     });
   }
 
-  function showResourcesCsvImportDialog() {
-    Modal.open({
-      title: "Import Resources CSV",
-      content: (container) => {
-        container.innerHTML = "";
-        container.style.padding = "16px";
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.gap = "20px";
-
-        // Instructions
-        const instructions = document.createElement("div");
-        instructions.style.fontSize = "12px";
-        instructions.style.color = "var(--text-muted)";
-        instructions.style.lineHeight = "1.6";
-        instructions.innerHTML = `
-          <strong>Expected CSV Columns:</strong><br>
-          id, label, jobFamily, jobLevel, cost, sell, otMultiplier, officeLocation
-        `;
-        container.appendChild(instructions);
-
-        // File upload section
-        const fileSection = document.createElement("div");
-        fileSection.style.display = "flex";
-        fileSection.style.flexDirection = "column";
-        fileSection.style.gap = "8px";
-
-        const fileLabel = document.createElement("label");
-        fileLabel.textContent = "Upload Resources CSV File";
-        fileLabel.style.fontSize = "12px";
-        fileLabel.style.fontWeight = "600";
-
-        const fileInput = document.createElement("input");
-        fileInput.type = "file";
-        fileInput.accept = ".csv";
-        fileInput.style.padding = "8px";
-        fileInput.style.border = "1px solid var(--border)";
-        fileInput.style.borderRadius = "4px";
-        fileInput.style.background = "var(--bg)";
-        fileInput.style.color = "var(--text)";
-        fileInput.style.fontSize = "12px";
-
-        fileInput.addEventListener("change", async (e) => {
-          const file = e.target.files[0];
-          if (!file) return;
-
-          const result = await importResourcesFromCsv(file);
-          if (result.success) {
-            alert(`Successfully imported ${result.count} resources`);
-            // Reload resources
-            if (typeof Rates !== 'undefined' && typeof Rates.load === 'function') {
-              await Rates.load();
-            }
-            renderManager(container.closest(".modal-body"));
-          } else {
-            alert(`Import failed: ${result.error}`);
-          }
-        });
-
-        fileSection.appendChild(fileLabel);
-        fileSection.appendChild(fileInput);
-        container.appendChild(fileSection);
-      },
-      onSave: null,
-      onClose: () => Modal.close()
-    });
-  }
 
   function showJobLevelsCsvImportDialog() {
     Modal.open({
       title: "Import Job Levels CSV",
       content: (container) => {
+        console.log("Building modal content for job levels import");
         container.innerHTML = "";
-        container.style.padding = "16px";
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.gap = "20px";
+        container.className = "modal-container";
 
         // Instructions
         const instructions = document.createElement("div");
-        instructions.style.fontSize = "12px";
-        instructions.style.color = "var(--text-muted)";
-        instructions.style.lineHeight = "1.6";
+        instructions.className = "modal-instructions";
         instructions.innerHTML = `
-          <strong>Expected CSV Columns:</strong><br>
-          Job Lvl Code, Job Lvl Name<br>
-          <em>Only these two columns are required. Additional columns (jobFamily, jobLevel, costRate, chargeoutRate) are optional.</em>
+          <strong>Expected CSV Format (headers are flexible):</strong><br>
+          Job_Lvl_Code, Job_Lvl_Name, [Job_Family]<br>
+          <br>
+          <em>Example:</em><br>
+          E1, Vice President, Executive<br>
+          E2, Director<br>
+          P5, Senior Professional
         `;
         container.appendChild(instructions);
 
@@ -604,31 +513,27 @@ window.ResourceManager = (function () {
 
         const fileLabel = document.createElement("label");
         fileLabel.textContent = "Upload Job Levels CSV File";
-        fileLabel.style.fontSize = "12px";
-        fileLabel.style.fontWeight = "600";
+        fileLabel.className = "modal-section-title";
 
         const fileInput = document.createElement("input");
         fileInput.type = "file";
         fileInput.accept = ".csv";
-        fileInput.style.padding = "8px";
-        fileInput.style.border = "1px solid var(--border)";
-        fileInput.style.borderRadius = "4px";
-        fileInput.style.background = "var(--bg)";
-        fileInput.style.color = "var(--text)";
-        fileInput.style.fontSize = "12px";
+        fileInput.className = "form-input";
 
         fileInput.addEventListener("change", async (e) => {
+          console.log("File selected for import");
           const file = e.target.files[0];
           if (!file) return;
 
           const result = await importJobLevelsFromCsv(file);
+          console.log("Import result:", result);
           if (result.success) {
             alert(`Successfully imported ${result.count} job levels`);
             // Reload job levels
             if (typeof JobLevels !== 'undefined' && typeof JobLevels.loadDefaultLevels === 'function') {
-              await JobLevels.loadDefaultLevels();
+              await JobLevels.loadDefaultLevels(true);
             }
-            renderManager(container.closest(".modal-body"));
+            Modal.close();
           } else {
             alert(`Import failed: ${result.error}`);
           }
@@ -637,6 +542,7 @@ window.ResourceManager = (function () {
         fileSection.appendChild(fileLabel);
         fileSection.appendChild(fileInput);
         container.appendChild(fileSection);
+        console.log("Modal content built and appended");
       },
       onSave: null,
       onClose: () => Modal.close()
@@ -647,9 +553,9 @@ window.ResourceManager = (function () {
     console.log('[Resource Manager] renderManager called');
     container.innerHTML = "";
     container.style.display = "flex";
-    container.style.flexDirection = "column";
-    container.style.flex = "1";
-    container.style.minHeight = "0";
+        container.style.flexDirection = "column";
+        container.style.flex = "1";
+        container.style.minHeight = "0";
 
     const allResources = await getAllResources();
 
@@ -657,14 +563,142 @@ window.ResourceManager = (function () {
     const toolbar = document.createElement("div");
     toolbar.style.padding = "12px 0";
     toolbar.style.borderBottom = "1px solid var(--border)";
-    toolbar.style.display = "flex";
-    toolbar.style.gap = "8px";
+    toolbar.className = "toolbar";
+
+    let selectedTableId = null; // Shared variable for both dialogs
+
+    const showCreateTableDialog = async () => {
+      const levels = await JobLevels.getAllLevels();
+
+      Modal.open({
+        title: "Create New Rate Table",
+        content: (formContainer) => {
+          formContainer.className = "modal-container";
+          
+          // Table name input
+          const nameLabel = document.createElement("div");
+          nameLabel.textContent = "Table Name";
+          nameLabel.className = "modal-section-title";
+          nameLabel.style.marginBottom = "4px";
+          nameLabel.style.color = "var(--text-muted)";
+          
+          const nameInput = document.createElement("input");
+          nameInput.type = "text";
+          nameInput.value = "New Rate Table";
+          nameInput.style.width = "100%";
+          nameInput.className = "form-input";
+          nameInput.style.marginBottom = "16px";
+          nameInput.style.boxSizing = "border-box";
+          
+          // Job levels selection
+          const levelsLabel = document.createElement("div");
+          levelsLabel.textContent = "Select Job Levels to Include";
+          levelsLabel.className = "modal-section-title";
+          levelsLabel.style.marginBottom = "8px";
+          levelsLabel.style.color = "var(--text-muted)";
+          
+          const levelsContainer = document.createElement("div");
+          levelsContainer.className = "table-container";
+        levelsContainer.style.padding = "8px";
+          
+          const levelCheckboxes = [];
+          
+          levels.forEach(level => {
+            const levelRow = document.createElement("div");
+            levelRow.style.display = "flex";
+        levelRow.style.alignItems = "center";
+        levelRow.style.padding = "6px";
+        levelRow.style.borderBottom = "1px solid var(--border-muted)";
+        levelRow.style.gap = "8px";
+            
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.checked = true; // Default to selected
+            checkbox.dataset.levelId = level.id;
+            
+            const levelDisplaySpan = document.createElement("span");
+            levelDisplaySpan.textContent = `${level.id} - ${level.label}`;
+            levelDisplaySpan.style.color = "var(--text)";
+            levelDisplaySpan.style.flex = "1";
+            
+            levelRow.appendChild(checkbox);
+            levelRow.appendChild(levelDisplaySpan);
+            
+            levelsContainer.appendChild(levelRow);
+            levelCheckboxes.push(checkbox);
+          });
+          
+          // Select All / Deselect All buttons
+          const buttonsRow = document.createElement("div");
+          buttonsRow.className = "toolbar";
+        buttonsRow.style.marginTop = "8px";
+          
+          const selectAllBtn = document.createElement("button");
+          selectAllBtn.className = "btn btn-secondary";
+          selectAllBtn.textContent = "Select All";
+          selectAllBtn.classList.add("btn-small");
+          selectAllBtn.addEventListener("click", () => {
+            levelCheckboxes.forEach(cb => cb.checked = true);
+          });
+          
+          const deselectAllBtn = document.createElement("button");
+          deselectAllBtn.className = "btn btn-secondary";
+          deselectAllBtn.textContent = "Deselect All";
+          deselectAllBtn.classList.add("btn-small");
+          deselectAllBtn.addEventListener("click", () => {
+            levelCheckboxes.forEach(cb => cb.checked = false);
+          });
+          
+          buttonsRow.appendChild(selectAllBtn);
+          buttonsRow.appendChild(deselectAllBtn);
+          
+          formContainer.appendChild(nameLabel);
+          formContainer.appendChild(nameInput);
+          formContainer.appendChild(levelsLabel);
+          formContainer.appendChild(levelsContainer);
+          formContainer.appendChild(buttonsRow);
+          
+          formContainer._inputs = { nameInput, levelCheckboxes };
+        },
+        onSave: () => {
+          const { nameInput, levelCheckboxes } = document.querySelector(".modal-body")._inputs || {};
+          if (!nameInput || !nameInput.value.trim()) {
+            return;
+          }
+          
+          const selectedLevelIds = levelCheckboxes
+            .filter(cb => cb.checked)
+            .map(cb => cb.dataset.levelId);
+          
+          if (selectedLevelIds.length === 0) {
+            alert("Please select at least one job level.");
+            return;
+          }
+          
+          // Create the table
+          const newTable = RateTables.addCustomTable(nameInput.value.trim(), "", "", "");
+          
+          // Add rates for selected job levels
+          selectedLevelIds.forEach(levelId => {
+            newTable.rates[levelId] = { cost: { reg: 0, ot: 0 }, sell: {} };
+          });
+          
+          // Save the updated table
+          RateTables.updateCustomTable(newTable.id, { rates: newTable.rates });
+          
+          selectedTableId = newTable.id;
+          Modal.close();
+          showRateScheduleDialog();
+        }
+      });
+    };
 
     const showRateScheduleDialog = async () => {
-      let selectedTableId = null;
       const tables = await RateTables.getAllTables();
       if (tables && tables.length > 0) {
         selectedTableId = tables[0].id;
+      } else {
+        selectedTableId = null;
       }
 
       let pendingRenameLevelId = null;
@@ -674,18 +708,13 @@ window.ResourceManager = (function () {
         content: (formContainer) => {
           // Load all required data synchronously from passed variables
           RateTables.getAllTables().then(async (rateTablesAll) => {
-            formContainer.style.display = "flex";
-            formContainer.style.flexDirection = "column";
-            formContainer.style.gap = "16px";
-            formContainer.style.minHeight = "500px";
+            formContainer.className = "modal-container";
+        formContainer.style.minHeight = "500px";
 
             const tablesSection = document.createElement("div");
 
             const tableHeaderRow = document.createElement("div");
-            tableHeaderRow.style.display = "flex";
-            tableHeaderRow.style.justifyContent = "space-between";
-            tableHeaderRow.style.alignItems = "center";
-            tableHeaderRow.style.gap = "8px";
+            tableHeaderRow.className = "status-bar";
             tableHeaderRow.style.marginBottom = "8px";
 
             const tableSelectLabel = document.createElement("div");
@@ -694,12 +723,7 @@ window.ResourceManager = (function () {
             tableSelectLabel.style.color = "var(--text-muted)";
 
             const tableSelect = document.createElement("select");
-            tableSelect.style.padding = "6px 8px";
-            tableSelect.style.border = "1px solid var(--border)";
-            tableSelect.style.borderRadius = "4px";
-            tableSelect.style.background = "var(--bg)";
-            tableSelect.style.color = "var(--text)";
-            tableSelect.style.fontSize = "12px";
+            tableSelect.className = "form-input";
             tableSelect.style.flex = "1";
 
             rateTablesAll.forEach(tbl => {
@@ -709,6 +733,24 @@ window.ResourceManager = (function () {
               if (tbl.id === selectedTableId) opt.selected = true;
               tableSelect.appendChild(opt);
             });
+
+          const starBtn = document.createElement("button");
+          const updateStar = () => {
+            const tables = RateTables.getCustomTables();
+            const current = tables.find(t => t.id === tableSelect.value);
+            starBtn.className = "btn-star" + (current && current.isDefault ? " active" : "");
+            starBtn.title = (current && current.isDefault) ? "Remove as default" : "Set as default";
+          };
+          starBtn.textContent = "\u2605";
+          updateStar();
+          starBtn.addEventListener("click", () => {
+            RateTables.setDefaultTable(tableSelect.value);
+            updateStar();
+          });
+
+          tableSelect.addEventListener("change", () => {
+            updateStar();
+          });
 
           const addTableBtn = document.createElement("button");
           addTableBtn.className = "btn btn-primary";
@@ -720,13 +762,12 @@ window.ResourceManager = (function () {
 
           tableHeaderRow.appendChild(tableSelectLabel);
           tableHeaderRow.appendChild(tableSelect);
+          tableHeaderRow.appendChild(starBtn);
           tableHeaderRow.appendChild(addTableBtn);
           tableHeaderRow.appendChild(delTableBtn);
 
           const jobLevelBtnRow = document.createElement("div");
-          jobLevelBtnRow.style.display = "flex";
-          jobLevelBtnRow.style.justifyContent = "space-between";
-          jobLevelBtnRow.style.alignItems = "center";
+          jobLevelBtnRow.className = "status-bar";
           jobLevelBtnRow.style.marginBottom = "8px";
 
           const jobLevelLabel = document.createElement("div");
@@ -753,41 +794,24 @@ window.ResourceManager = (function () {
 
           const tableMeta = document.createElement("div");
           tableMeta.style.display = "grid";
-          tableMeta.style.gridTemplateColumns = "1.5fr 1fr 1fr 110px";
-          tableMeta.style.gap = "8px";
-          tableMeta.style.marginTop = "8px";
+        tableMeta.style.gridTemplateColumns = "1.5fr 1fr 1fr 110px";
+        tableMeta.style.gap = "8px";
+        tableMeta.style.marginTop = "8px";
 
           const tableLabelInput = document.createElement("input");
           tableLabelInput.placeholder = "Table label";
-          tableLabelInput.style.padding = "6px";
-          tableLabelInput.style.border = "1px solid var(--border)";
-          tableLabelInput.style.borderRadius = "4px";
-          tableLabelInput.style.background = "var(--bg)";
-          tableLabelInput.style.color = "var(--text)";
+          tableLabelInput.className = "form-input";
 
           const tableDescInput = document.createElement("input");
           tableDescInput.placeholder = "Description";
-          tableDescInput.style.padding = "6px";
-          tableDescInput.style.border = "1px solid var(--border)";
-          tableDescInput.style.borderRadius = "4px";
-          tableDescInput.style.background = "var(--bg)";
-          tableDescInput.style.color = "var(--text)";
+          tableDescInput.className = "form-input";
 
           const tableBLInput = document.createElement("input");
           tableBLInput.placeholder = "Default BL";
-          tableBLInput.style.padding = "6px";
-          tableBLInput.style.border = "1px solid var(--border)";
-          tableBLInput.style.borderRadius = "4px";
-          tableBLInput.style.background = "var(--bg)";
-          tableBLInput.style.color = "var(--text)";
+          tableBLInput.className = "form-input";
 
           const tableProvSelect = document.createElement("select");
-          tableProvSelect.style.padding = "6px";
-          tableProvSelect.style.border = "1px solid var(--border)";
-          tableProvSelect.style.borderRadius = "4px";
-          tableProvSelect.style.background = "var(--bg)";
-          tableProvSelect.style.color = "var(--text)";
-          tableProvSelect.style.fontSize = "12px";
+          tableProvSelect.className = "form-input";
 
           // Add blank option
           const blankProvOpt = document.createElement("option");
@@ -800,28 +824,41 @@ window.ResourceManager = (function () {
           // Add province options
           if (window.ProvinceMapping && typeof window.ProvinceMapping.getProvinceOptions === "function") {
             const provinceOptions = window.ProvinceMapping.getProvinceOptions();
+            console.log("🔧 Province options available:", provinceOptions.length);
             provinceOptions.forEach(opt => {
               const option = document.createElement("option");
               option.value = opt.display;
               option.textContent = opt.display;
               tableProvSelect.appendChild(option);
             });
+            console.log("🔧 Province select populated with", tableProvSelect.options.length, "options");
+          } else {
+            console.log("❌ ProvinceMapping not available for populating select");
           }
 
           tableMeta.appendChild(tableLabelInput);
           tableMeta.appendChild(tableDescInput);
           tableMeta.appendChild(tableBLInput);
           tableMeta.appendChild(tableProvSelect);
+          console.log("🔧 Province select appended to DOM, options:", tableProvSelect.options.length);
+
+          // Re-attach event handler after DOM insertion to be safe
+          tableProvSelect.addEventListener("change", async (event) => {
+            console.log("🎯 SECOND PROVINCE CHANGE EVENT TRIGGERED!");
+            const selectedProvince = tableProvSelect.value;
+            console.log(`🔄 Second handler: Province changed to: "${selectedProvince}"`);
+          });
+
+          // Test basic click event
+          tableProvSelect.addEventListener("click", () => {
+            console.log("🖱️ Province select clicked");
+          });
 
           // Wrap table grid in a scrollable container
           const tableGridWrapper = document.createElement("div");
-          tableGridWrapper.style.marginTop = "12px";
-          tableGridWrapper.style.overflowY = "auto";
-          tableGridWrapper.style.overflowX = "hidden";
-          tableGridWrapper.style.maxHeight = "500px";
-          tableGridWrapper.style.border = "1px solid var(--border)";
-          tableGridWrapper.style.borderRadius = "4px";
-          tableGridWrapper.style.position = "relative";
+          tableGridWrapper.className = "table-container";
+        tableGridWrapper.style.marginTop = "12px";
+        tableGridWrapper.style.position = "relative";
 
           let currentTable = null; // Keep current table in memory
 
@@ -848,8 +885,8 @@ window.ResourceManager = (function () {
             // Create grid container
             const gridContainer = document.createElement("div");
             gridContainer.style.display = "flex";
-            gridContainer.style.flexDirection = "column";
-            gridContainer.style.gap = "0";
+        gridContainer.style.flexDirection = "column";
+        gridContainer.style.gap = "0";
 
             const allInputs = [];
 
@@ -941,21 +978,19 @@ window.ResourceManager = (function () {
             // Job Level Code column header
             const jobLevelCodeHeader = document.createElement("div");
             jobLevelCodeHeader.textContent = "Code";
-            jobLevelCodeHeader.style.gridColumn = "1";
-            jobLevelCodeHeader.style.textAlign = "left";
+            
             headerRowPrimary.appendChild(jobLevelCodeHeader);
 
             // Job Level Name column header
             const jobLevelNameHeader = document.createElement("div");
             jobLevelNameHeader.textContent = "Name";
-            jobLevelNameHeader.style.gridColumn = "2";
-            jobLevelNameHeader.style.textAlign = "left";
+            
             headerRowPrimary.appendChild(jobLevelNameHeader);
 
             // Cost header
             const costHeader = document.createElement("div");
             costHeader.textContent = "Cost";
-            costHeader.style.textAlign = "center";
+            
             costHeader.style.gridColumn = "3 / span 2";
             headerRowPrimary.appendChild(costHeader);
 
@@ -963,7 +998,7 @@ window.ResourceManager = (function () {
             rateColumns.forEach((col, idx) => {
               const sellHeader = document.createElement("div");
               sellHeader.textContent = col.label;
-              sellHeader.style.textAlign = "center";
+              
               sellHeader.style.gridColumn = `${5 + idx * 2} / span 2`;
               headerRowPrimary.appendChild(sellHeader);
             });
@@ -988,16 +1023,16 @@ window.ResourceManager = (function () {
               const codeCell = document.createElement("div");
               codeCell.textContent = rateCode;
               codeCell.style.fontSize = "12px";
-              codeCell.style.fontWeight = "500";
-              codeCell.style.color = "var(--text)";
+        codeCell.style.fontWeight = "500";
+        codeCell.style.color = "var(--text)";
               dataRow.appendChild(codeCell);
 
               // Job Level Name cell
               const nameCell = document.createElement("div");
               nameCell.textContent = levelLabel;
               nameCell.style.fontSize = "12px";
-              nameCell.style.fontWeight = "500";
-              nameCell.style.color = "var(--text)";
+        nameCell.style.fontWeight = "500";
+        nameCell.style.color = "var(--text)";
               dataRow.appendChild(nameCell);
 
               // Cost Regular input
@@ -1126,25 +1161,20 @@ window.ResourceManager = (function () {
             // Table: Imported Employees (NEW SCHEMA)
             const importedSection = document.createElement("div");
             importedSection.style.marginTop = "18px";
-            importedSection.style.marginBottom = "8px";
-            importedSection.style.fontWeight = "600";
-            importedSection.style.fontSize = "15px";
+        importedSection.style.marginBottom = "8px";
+        importedSection.style.fontWeight = "600";
+        importedSection.style.fontSize = "15px";
             importedSection.textContent = `Imported Employees (${allResources.length})`;
             container.appendChild(importedSection);
 
             // Only declare 'table' once in this scope
             table = document.createElement("div");
             table.className = "resource-table";
-            table.style.display = "grid";
-            table.style.gridTemplateColumns = "120px 1.5fr 1fr 1fr 1fr 1fr";
-            table.style.gap = "0";
-            table.style.border = "1px solid var(--border)";
-            table.style.borderRadius = "4px";
-            table.style.overflow = "hidden";
-            table.style.background = "var(--bg-panel)";
-            table.style.marginBottom = "12px";
-            table.style.maxHeight = "340px";
-            table.style.overflowY = "auto";
+            table.className = "table-container";
+        table.style.display = "grid";
+        table.style.gridTemplateColumns = "120px 1.5fr 1fr 1fr 1fr 1fr";
+        table.style.gap = "0";
+        table.style.marginBottom = "12px";
 
             // Header row (NEW SCHEMA)
             const headerRow = document.createElement("div");
@@ -1153,12 +1183,7 @@ window.ResourceManager = (function () {
             ["Rate Lookup", "Employee ID", "Name", "Job Level", "Role", "Lvl3"].forEach(label => {
               const cell = document.createElement("div");
               cell.textContent = label;
-              cell.style.fontWeight = "600";
-              cell.style.fontSize = "12px";
-              cell.style.padding = "8px 6px";
-              cell.style.background = "var(--bg)";
-              cell.style.borderBottom = "1px solid var(--border-muted)";
-              cell.style.color = "var(--text-muted)";
+              cell.className = "table-header";
               table.appendChild(cell);
             });
 
@@ -1170,10 +1195,7 @@ window.ResourceManager = (function () {
               [resource.costRateId, resource.employeeId, resource.name, resource.jobLevel, resource.role, resource.lvl3Id].forEach((val, idx) => {
                 const cell = document.createElement("div");
                 cell.textContent = val || "";
-                cell.style.fontSize = "12px";
-                cell.style.padding = "6px 6px";
-                cell.style.borderBottom = "1px solid var(--border-muted)";
-                cell.style.color = "var(--text)";
+                cell.className = "table-cell";
                 table.appendChild(cell);
               });
             });
@@ -1194,11 +1216,16 @@ window.ResourceManager = (function () {
           }
 
           // Province change handler - auto-populate ALL cost rates
-          tableProvSelect.addEventListener("change", async () => {
+          tableProvSelect.addEventListener("change", async (event) => {
+            console.log("🎯 PROVINCE CHANGE EVENT TRIGGERED!");
+            console.log("Event target:", event.target);
+            console.log("Selected value:", event.target.value);
             const selectedProvince = tableProvSelect.value;
+            console.log(`🔄 Province changed to: "${selectedProvince}"`);
             await updateTableMeta();
             
             if (!selectedProvince) {
+              console.log("❌ No province selected - clearing all cost rates");
               // No province - clear all cost rates
               const allInputs = tableGridWrapper.querySelectorAll('input[data-type="costReg"], input[data-type="costOT"]');
               allInputs.forEach(input => {
@@ -1213,12 +1240,29 @@ window.ResourceManager = (function () {
               return;
             }
 
+            console.log("🔍 Auto-lookup cost rates for ALL job levels");
             // Auto-lookup cost rates for ALL job levels
+            console.log("🔧 ProvinceMapping available:", !!window.ProvinceMapping);
+            console.log("🔧 lookupCostRate function available:", !!(window.ProvinceMapping && typeof window.ProvinceMapping.lookupCostRate === "function"));
             if (window.ProvinceMapping && typeof window.ProvinceMapping.lookupCostRate === "function") {
+              console.log("✅ ProvinceMapping.lookupCostRate function available");
               const costRegInputs = tableGridWrapper.querySelectorAll('input[data-type="costReg"]');
+              console.log(`📊 Found ${costRegInputs.length} cost rate input pairs to process`);
+              
+              // Log all rate codes found
+              const rateCodes = Array.from(costRegInputs).map(input => input.dataset.rateCode);
+              console.log("📋 Rate codes found:", rateCodes);
+              
+              // Generate and log all lookup keys
+              const lookupKeys = rateCodes.map(code => `${selectedProvince}${code}`);
+              console.log(`🔑 ALL LOOKUP KEYS for province "${selectedProvince}":`, lookupKeys);
+              
               for (const costRegInput of costRegInputs) {
                 const rateCode = costRegInput.dataset.rateCode;
                 const costOTInput = tableGridWrapper.querySelector(`input[data-rate-code="${rateCode}"][data-type="costOT"]`);
+                
+                console.log(`🔎 Processing rate code: "${rateCode}"`);
+                console.log(`🔑 LOOKUP KEY: "${selectedProvince}" + "${rateCode}" = "${selectedProvince}${rateCode}"`);
                 
                 // Clear first
                 costRegInput.value = "";
@@ -1226,8 +1270,11 @@ window.ResourceManager = (function () {
                 
                 // Lookup rates
                 const rates = await window.ProvinceMapping.lookupCostRate(selectedProvince, rateCode);
+                console.log(`📋 Lookup result for ${selectedProvince}+${rateCode}:`, rates);
+                
                 if (rates) {
                   // Match found - populate and save
+                  console.log(`✅ Match found! Setting cost rates: reg=${rates.costRegular}, ot=${rates.costOT}`);
                   costRegInput.value = rates.costRegular.toString();
                   costOTInput.value = rates.costOT.toString();
                   costRegInput.style.background = "rgba(96, 250, 165, 0.25)";
@@ -1242,6 +1289,7 @@ window.ResourceManager = (function () {
                     RateTables.updateTableRates(table.id, rateCode, table.rates[rateCode]);
                   }
                 } else {
+                  console.log(`❌ No match found for ${selectedProvince}+${rateCode}`);
                   // No match - clear stored values
                   const table = currentTable;
                   if (table && table.rates[rateCode]) {
@@ -1261,6 +1309,9 @@ window.ResourceManager = (function () {
             }
           });
 
+          console.log("🔧 Province change event handler attached to select");
+          console.log("Select element:", tableProvSelect);
+          
           function syncTableSelectLabel() {
             const option = Array.from(tableSelect.options).find(opt => opt.value === selectedTableId);
             if (option) {
@@ -1285,10 +1336,8 @@ window.ResourceManager = (function () {
           });
 
           addTableBtn.addEventListener("click", () => {
-            const newTable = RateTables.addCustomTable("New Rate Table", "", "", "");
-            selectedTableId = newTable.id;
             Modal.close();
-            showRateScheduleDialog();
+            showCreateTableDialog();
           });
 
           delTableBtn.addEventListener("click", async () => {
@@ -1311,7 +1360,8 @@ window.ResourceManager = (function () {
           formContainer.appendChild(tablesSection);
           }); // End of RateTables.getAllTables().then()
         },
-        onSave: async () => {
+        onSave: null,
+        onClose: async () => {
           Modal.close();
           // Reload the latest tables from storage to ensure persistence
           if (typeof RateTables !== 'undefined' && typeof RateTables.getAllTables === 'function') {
@@ -1337,24 +1387,8 @@ window.ResourceManager = (function () {
       showEmployeeImportDialog();
     });
 
-    const importResourcesCsvBtn = document.createElement("button");
-    importResourcesCsvBtn.className = "btn btn-secondary";
-    importResourcesCsvBtn.textContent = "📄 Import Resources CSV";
-    importResourcesCsvBtn.addEventListener("click", () => {
-      showResourcesCsvImportDialog();
-    });
-
-    const importJobLevelsCsvBtn = document.createElement("button");
-    importJobLevelsCsvBtn.className = "btn btn-secondary";
-    importJobLevelsCsvBtn.textContent = "📋 Import Job Levels CSV";
-    importJobLevelsCsvBtn.addEventListener("click", () => {
-      showJobLevelsCsvImportDialog();
-    });
-
     toolbar.appendChild(rateScheduleBtn);
     toolbar.appendChild(importEmployeesBtn);
-    toolbar.appendChild(importResourcesCsvBtn);
-    toolbar.appendChild(importJobLevelsCsvBtn);
     container.appendChild(toolbar);
 
     console.log("✅ Resource Manager toolbar appended with buttons:", toolbar.children.length);
@@ -1382,8 +1416,7 @@ window.ResourceManager = (function () {
       const clearBtn = document.createElement("button");
       clearBtn.className = "btn btn-secondary";
       clearBtn.textContent = "Clear All";
-      clearBtn.style.fontSize = "11px";
-      clearBtn.style.padding = "4px 8px";
+      clearBtn.classList.add("btn-small");
       clearBtn.addEventListener("click", () => {
         if (confirm(`Clear all ${importedEmployees.length} imported employees?`)) {
           saveImportedNamedResources([]);
@@ -1468,6 +1501,7 @@ window.ResourceManager = (function () {
       container.appendChild(employeeSection);
     }
 
+
     function buildSellRatesInputs(columns, existingSellRates) {
       const wrapper = document.createElement("div");
       wrapper.style.display = "flex";
@@ -1490,22 +1524,14 @@ window.ResourceManager = (function () {
         reg.step = "0.01";
         reg.placeholder = "Sell Reg";
         reg.value = existingSellRates && existingSellRates[col.id] ? existingSellRates[col.id].regular : "";
-        reg.style.padding = "6px";
-        reg.style.border = "1px solid var(--border)";
-        reg.style.borderRadius = "4px";
-        reg.style.background = "var(--bg)";
-        reg.style.color = "var(--text)";
+        reg.className = "form-input";
 
         const ot = document.createElement("input");
         ot.type = "number";
         ot.step = "0.01";
         ot.placeholder = "Sell OT";
         ot.value = existingSellRates && existingSellRates[col.id] ? existingSellRates[col.id].ot : "";
-        ot.style.padding = "6px";
-        ot.style.border = "1px solid var(--border)";
-        ot.style.borderRadius = "4px";
-        ot.style.background = "var(--bg)";
-        ot.style.color = "var(--text)";
+        ot.className = "form-input";
 
         inputs[col.id] = { reg, ot };
 
@@ -1524,34 +1550,29 @@ window.ResourceManager = (function () {
         content: (formContainer) => {
           const columns = RateColumns.getAllColumns();
 
+          const codeInput = document.createElement("input");
+          codeInput.placeholder = "Job Level Code (e.g., P5, L3)";
+          codeInput.className = "form-input";
+          codeInput.style.width = "100%";
+          codeInput.style.marginBottom = "8px";
+
           const labelInput = document.createElement("input");
-          labelInput.placeholder = "Job Level Label";
-          labelInput.style.padding = "6px";
-          labelInput.style.border = "1px solid var(--border)";
-          labelInput.style.borderRadius = "4px";
-          labelInput.style.background = "var(--bg)";
-          labelInput.style.color = "var(--text)";
+          labelInput.placeholder = "Job Level Name";
+          labelInput.className = "form-input";
           labelInput.style.width = "100%";
+          labelInput.style.marginBottom = "8px";
 
           const costRegInput = document.createElement("input");
           costRegInput.type = "number";
           costRegInput.step = "0.01";
           costRegInput.placeholder = "Cost Reg";
-          costRegInput.style.padding = "6px";
-          costRegInput.style.border = "1px solid var(--border)";
-          costRegInput.style.borderRadius = "4px";
-          costRegInput.style.background = "var(--bg)";
-          costRegInput.style.color = "var(--text)";
+          costRegInput.className = "form-input";
 
           const costOTInput = document.createElement("input");
           costOTInput.type = "number";
           costOTInput.step = "0.01";
           costOTInput.placeholder = "Cost OT";
-          costOTInput.style.padding = "6px";
-          costOTInput.style.border = "1px solid var(--border)";
-          costOTInput.style.borderRadius = "4px";
-          costOTInput.style.background = "var(--bg)";
-          costOTInput.style.color = "var(--text)";
+          costOTInput.className = "form-input";
 
           const costsRow = document.createElement("div");
           costsRow.style.display = "grid";
@@ -1563,16 +1584,17 @@ window.ResourceManager = (function () {
 
           const sellRates = buildSellRatesInputs(columns);
 
+          formContainer.appendChild(codeInput);
           formContainer.appendChild(labelInput);
           formContainer.appendChild(costsRow);
           formContainer.appendChild(document.createElement("hr"));
           formContainer.appendChild(sellRates.wrapper);
 
-          formContainer._rateInputs = { labelInput, costRegInput, costOTInput, sellRates };
+          formContainer._rateInputs = { codeInput, labelInput, costRegInput, costOTInput, sellRates };
         },
         onSave: () => {
-          const { labelInput, costRegInput, costOTInput, sellRates } = document.querySelector(".modal-body")._rateInputs || {};
-          if (!labelInput || !labelInput.value.trim()) return;
+          const { codeInput, labelInput, costRegInput, costOTInput, sellRates } = document.querySelector(".modal-body")._rateInputs || {};
+          if (!codeInput || !codeInput.value.trim() || !labelInput || !labelInput.value.trim()) return;
 
           const sellRatesMap = {};
           Object.keys(sellRates.inputs).forEach(colId => {
@@ -1582,6 +1604,7 @@ window.ResourceManager = (function () {
           });
 
           JobLevels.addCustomLevel(
+            codeInput.value.trim(),
             labelInput.value.trim(),
             costRegInput.value,
             costOTInput.value,
@@ -1600,34 +1623,29 @@ window.ResourceManager = (function () {
         content: (formContainer) => {
           const columns = RateColumns.getAllColumns();
 
+          const codeInput = document.createElement("input");
+          codeInput.value = level.id;
+          codeInput.className = "form-input";
+          codeInput.style.width = "100%";
+          codeInput.style.marginBottom = "8px";
+
           const labelInput = document.createElement("input");
           labelInput.value = level.label;
-          labelInput.style.padding = "6px";
-          labelInput.style.border = "1px solid var(--border)";
-          labelInput.style.borderRadius = "4px";
-          labelInput.style.background = "var(--bg)";
-          labelInput.style.color = "var(--text)";
+          labelInput.className = "form-input";
           labelInput.style.width = "100%";
+          labelInput.style.marginBottom = "8px";
 
           const costRegInput = document.createElement("input");
           costRegInput.type = "number";
           costRegInput.step = "0.01";
           costRegInput.value = level.costRegular;
-          costRegInput.style.padding = "6px";
-          costRegInput.style.border = "1px solid var(--border)";
-          costRegInput.style.borderRadius = "4px";
-          costRegInput.style.background = "var(--bg)";
-          costRegInput.style.color = "var(--text)";
+          costRegInput.className = "form-input";
 
           const costOTInput = document.createElement("input");
           costOTInput.type = "number";
           costOTInput.step = "0.01";
           costOTInput.value = level.costOT;
-          costOTInput.style.padding = "6px";
-          costOTInput.style.border = "1px solid var(--border)";
-          costOTInput.style.borderRadius = "4px";
-          costOTInput.style.background = "var(--bg)";
-          costOTInput.style.color = "var(--text)";
+          costOTInput.className = "form-input";
 
           const costsRow = document.createElement("div");
           costsRow.style.display = "grid";
@@ -1638,16 +1656,17 @@ window.ResourceManager = (function () {
 
           const sellRates = buildSellRatesInputs(columns, level.sellRates || { standard: { regular: level.sellRegular || 0, ot: level.sellOT || 0 } });
 
+          formContainer.appendChild(codeInput);
           formContainer.appendChild(labelInput);
           formContainer.appendChild(costsRow);
           formContainer.appendChild(document.createElement("hr"));
           formContainer.appendChild(sellRates.wrapper);
 
-          formContainer._rateInputs = { labelInput, costRegInput, costOTInput, sellRates };
+          formContainer._rateInputs = { codeInput, labelInput, costRegInput, costOTInput, sellRates };
         },
         onSave: () => {
-          const { labelInput, costRegInput, costOTInput, sellRates } = document.querySelector(".modal-body")._rateInputs || {};
-          if (!labelInput || !labelInput.value.trim()) return;
+          const { codeInput, labelInput, costRegInput, costOTInput, sellRates } = document.querySelector(".modal-body")._rateInputs || {};
+          if (!codeInput || !codeInput.value.trim() || !labelInput || !labelInput.value.trim()) return;
 
           const sellRatesMap = {};
           Object.keys(sellRates.inputs).forEach(colId => {
@@ -1658,6 +1677,7 @@ window.ResourceManager = (function () {
 
           JobLevels.updateCustomLevel(
             level.id,
+            codeInput.value.trim(),
             labelInput.value.trim(),
             costRegInput.value,
             costOTInput.value,
@@ -1752,7 +1772,6 @@ window.ResourceManager = (function () {
       heading.textContent = title;
       section.appendChild(heading);
 
-
       table = document.createElement("div");
       table.style.display = "grid";
       // Add Province column after Label
@@ -1781,7 +1800,6 @@ window.ResourceManager = (function () {
 
       // Data rows
       for (const resource of resources) {
-
 
         // Use Province for rate mapping (default NB if not set)
         const province = resource.province || resource.location || "NB";
@@ -2032,8 +2050,11 @@ window.ResourceManager = (function () {
     openManager,
     openRateScheduleManager,
     getImportedNamedResources,
-    saveImportedNamedResources
+    saveImportedNamedResources,
+    showJobLevelsCsvImportDialog,
+    importJobLevelsFromCsv
   };
 })();
 
-console.log("✅ ResourceManager loaded");
+// console.log("✅ ResourceManager loaded");
+console.log("🔧 ProvinceMapping available at load time:", !!window.ProvinceMapping);

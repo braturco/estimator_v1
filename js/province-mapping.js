@@ -35,12 +35,15 @@ window.ProvinceMapping = (function () {
   // Lookup cost rate from imported rate tables
   async function lookupCostRate(provinceDisplay, jobLevel) {
     const mappedProvince = getMapping(provinceDisplay);
+    const lookupKey = `${mappedProvince}${jobLevel}`.toUpperCase();
     console.log(`🔍 Lookup: display="${provinceDisplay}" → mapped="${mappedProvince}" + jobLevel="${jobLevel}"`);
+    console.log(`🔑 SEARCHING FOR LOOKUP KEY: "${lookupKey}"`);
 
     // Get imported rate tables from localStorage
     const raw = localStorage.getItem("estimator_imported_rate_tables_v1");
+    console.log(`📦 Raw localStorage data:`, raw ? `${raw.length} chars` : 'null');
     if (!raw) {
-      console.log("❌ No imported rate tables found");
+      console.log("❌ No imported rate tables found in localStorage");
       return null;
     }
 
@@ -63,6 +66,14 @@ window.ProvinceMapping = (function () {
       console.log(`📋 Found ${rateTables.length} rate table entries`);
       if (rateTables.length > 0) {
         console.log("Sample entry:", rateTables[0]);
+        console.log("All keys in sample entry:", Object.keys(rateTables[0]));
+
+        // Show first few entries to see what data we have
+        const previewCount = Math.min(3, rateTables.length);
+        console.log(`📊 First ${previewCount} rate table entries:`);
+        for (let i = 0; i < previewCount; i++) {
+          console.log(`  [${i}]:`, rateTables[i]);
+        }
       }
 
       // Try all common field names for province and job code/level
@@ -70,11 +81,30 @@ window.ProvinceMapping = (function () {
       const jobFields = ["jobLevel", "jobCode", "JOB LEVEL", "Job Level", "Job Code", "JOB CODE"];
       const costFields = ["costRate", "COST RATE", "Cost Rate", "cost", "COST"];
 
+      console.log(`🔎 Looking for combined key: "${lookupKey}"`);
+      console.log(`📋 Field name options - Province: [${provinceFields.join(', ')}], Job: [${jobFields.join(', ')}], Cost: [${costFields.join(', ')}]`);
+
+      // First, try to match using the combined lookup key (Province + JobLevel)
+      // This handles the format: CostRate_ID = "ONP6", Cost_Rate = 95
+      const costRateIdFields = ["costRateId", "costRateID", "CostRateId", "costRate_id"];
+      const directByCostId = rateTables.find(rt => {
+        const rtId = getField(rt, costRateIdFields);
+        return rtId && rtId.toString().toUpperCase() === lookupKey;
+      });
+
+      if (directByCostId) {
+        const directCost = parseFloat(getField(directByCostId, costFields) || directByCostId.costRate || 0);
+        if (directCost > 0) {
+          console.log(`✅ Combined key match found for "${lookupKey}": ${directCost}`);
+          return { costRegular: directCost, costOT: directCost * 1.5 };
+        }
+      }
+
       let foundMatch = null;
       rateTables.forEach((rt, idx) => {
         const rtProvince = getField(rt, provinceFields);
         const rtJobLevel = getField(rt, jobFields);
-        const rtCostRate = getField(rt, costFields);
+        const rtCostRate = getField(rt, costFields) || rt.costRate;
         const provinceMatch = rtProvince && rtProvince.toString().toUpperCase() === mappedProvince.toUpperCase();
         // Allow match if job code matches, or job level label starts with code (e.g., 'L3' matches 'L3 - Director')
         let jobLevelMatch = false;
@@ -91,8 +121,9 @@ window.ProvinceMapping = (function () {
       });
 
       if (foundMatch) {
-        const costRate = parseFloat(getField(foundMatch, costFields) || 0);
+        const costRate = parseFloat(getField(foundMatch, costFields) || foundMatch.costRate || 0);
         if (costRate > 0) {
+          console.log(`✅ RETURNING RATES: costRegular=${costRate}, costOT=${costRate * 1.5}`);
           return {
             costRegular: costRate,
             costOT: costRate * 1.5
@@ -105,6 +136,7 @@ window.ProvinceMapping = (function () {
       console.warn("Failed to lookup cost rate", e);
     }
 
+    console.log(`🚫 RETURNING NULL for lookup key "${mappedProvince}${jobLevel}"`);
     return null;
   }
 
@@ -116,4 +148,4 @@ window.ProvinceMapping = (function () {
   };
 })();
 
-console.log("✅ ProvinceMapping ready");
+console.log("✅ ProvinceMapping ready - available functions:", Object.keys(window.ProvinceMapping));

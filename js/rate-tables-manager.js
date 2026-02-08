@@ -106,16 +106,11 @@ window.RateTablesManager = (function () {
       title: "Import Labor Cost Rate Tables",
       content: (container) => {
         container.innerHTML = "";
-        container.style.padding = "16px";
-        container.style.display = "flex";
-        container.style.flexDirection = "column";
-        container.style.gap = "20px";
+        container.className = "modal-container";
 
         // Instructions
         const instructions = document.createElement("div");
-        instructions.style.fontSize = "12px";
-        instructions.style.color = "var(--text-muted)";
-        instructions.style.lineHeight = "1.6";
+        instructions.className = "modal-instructions";
         instructions.innerHTML = `
           <strong>Expected CSV Columns:</strong><br>
           CostRate_ID, Cost_Rate
@@ -124,24 +119,16 @@ window.RateTablesManager = (function () {
 
         // SharePoint URL section
         const urlSection = document.createElement("div");
-        urlSection.style.display = "flex";
-        urlSection.style.flexDirection = "column";
-        urlSection.style.gap = "8px";
+        urlSection.className = "modal-section";
 
         const urlLabel = document.createElement("label");
         urlLabel.textContent = "SharePoint URL";
-        urlLabel.style.fontSize = "12px";
-        urlLabel.style.fontWeight = "600";
+        urlLabel.className = "modal-section-title";
 
         const urlInput = document.createElement("input");
         urlInput.type = "text";
+        urlInput.className = "form-input";
         urlInput.placeholder = "https://sharepoint.com/path/to/rate-tables.csv";
-        urlInput.style.padding = "8px";
-        urlInput.style.border = "1px solid var(--border)";
-        urlInput.style.borderRadius = "4px";
-        urlInput.style.background = "var(--bg)";
-        urlInput.style.color = "var(--text)";
-        urlInput.style.fontSize = "12px";
 
         const urlBtn = document.createElement("button");
         urlBtn.className = "btn btn-primary";
@@ -183,29 +170,21 @@ window.RateTablesManager = (function () {
 
         // File upload section
         const fileSection = document.createElement("div");
-        fileSection.style.display = "flex";
-        fileSection.style.flexDirection = "column";
-        fileSection.style.gap = "8px";
+        fileSection.className = "modal-section";
 
         const fileLabel = document.createElement("label");
         fileLabel.textContent = "Upload CSV File";
-        fileLabel.style.fontSize = "12px";
-        fileLabel.style.fontWeight = "600";
+        fileLabel.className = "modal-section-title";
 
         const fileInput = document.createElement("input");
         fileInput.type = "file";
         fileInput.accept = ".csv";
-        fileInput.style.padding = "8px";
-        fileInput.style.border = "1px solid var(--border)";
-        fileInput.style.borderRadius = "4px";
-        fileInput.style.background = "var(--bg)";
-        fileInput.style.color = "var(--text)";
-        fileInput.style.fontSize = "12px";
+        fileInput.className = "form-input";
 
         fileInput.addEventListener("change", async (e) => {
           const file = e.target.files[0];
           if (!file) return;
-          
+
           const result = await importRateTablesFromFile(file);
           if (result.success) {
             alert(`Successfully imported ${result.count} rate table records`);
@@ -227,16 +206,11 @@ window.RateTablesManager = (function () {
 
   function renderManager(container) {
     container.innerHTML = "";
-    container.style.padding = "16px";
-    container.style.display = "flex";
-    container.style.flexDirection = "column";
-    container.style.gap = "16px";
+    container.className = "modal-container";
 
     // Toolbar
     const toolbar = document.createElement("div");
-    toolbar.style.display = "flex";
-    toolbar.style.gap = "8px";
-    toolbar.style.marginBottom = "8px";
+    toolbar.className = "toolbar";
 
     const importBtn = document.createElement("button");
     importBtn.className = "btn btn-primary";
@@ -252,16 +226,11 @@ window.RateTablesManager = (function () {
     const importedRateTables = getImportedRateTables();
     if (importedRateTables.length > 0) {
       const rateSection = document.createElement("div");
-      rateSection.style.display = "flex";
-      rateSection.style.flexDirection = "column";
-      rateSection.style.gap = "12px";
-      rateSection.style.padding = "12px 0";
       rateSection.style.borderBottom = "1px solid var(--border)";
+      rateSection.style.paddingBottom = "12px";
 
       const sectionHeader = document.createElement("div");
-      sectionHeader.style.display = "flex";
-      sectionHeader.style.justifyContent = "space-between";
-      sectionHeader.style.alignItems = "center";
+      sectionHeader.className = "status-bar";
 
       const sectionTitle = document.createElement("div");
       sectionTitle.textContent = `Imported Rate Tables (${importedRateTables.length})`;
@@ -269,10 +238,8 @@ window.RateTablesManager = (function () {
       sectionTitle.style.fontWeight = "600";
 
       const clearBtn = document.createElement("button");
-      clearBtn.className = "btn btn-secondary";
+      clearBtn.className = "btn btn-secondary btn-small";
       clearBtn.textContent = "Clear All";
-      clearBtn.style.fontSize = "11px";
-      clearBtn.style.padding = "4px 8px";
       clearBtn.addEventListener("click", () => {
         if (confirm(`Clear all ${importedRateTables.length} imported rate table records?`)) {
           saveImportedRateTables([]);
@@ -286,48 +253,30 @@ window.RateTablesManager = (function () {
 
       // Table container with scroll
       const tableContainer = document.createElement("div");
-      tableContainer.style.maxHeight = "400px";
-      tableContainer.style.overflowY = "auto";
-      tableContainer.style.border = "1px solid var(--border)";
-      tableContainer.style.borderRadius = "4px";
+      tableContainer.className = "table-container";
 
       // Table
       const table = document.createElement("table");
-      table.style.width = "100%";
-      table.style.borderCollapse = "collapse";
-      table.style.fontSize = "11px";
+      table.className = "data-table";
 
-      // Header row (CSV columns only)
+      // Header row
       const thead = document.createElement("thead");
-      thead.style.position = "sticky";
-      thead.style.top = "0";
-      thead.style.background = "var(--bg-panel)";
-      thead.style.zIndex = "1";
-
       const headerRow = document.createElement("tr");
       const headers = ["CostRate_ID", "Cost Rate"];
       headers.forEach(headerText => {
         const th = document.createElement("th");
+        th.className = "table-header";
         th.textContent = headerText;
-        th.style.padding = "8px 6px";
-        th.style.textAlign = "left";
-        th.style.borderBottom = "1px solid var(--border)";
-        th.style.fontWeight = "600";
-        th.style.color = "var(--text-muted)";
-        th.style.whiteSpace = "nowrap";
         headerRow.appendChild(th);
       });
       thead.appendChild(headerRow);
       table.appendChild(thead);
 
-      // Body rows (CSV columns only)
+      // Body rows
       const tbody = document.createElement("tbody");
       importedRateTables.forEach((rate, idx) => {
         const row = document.createElement("tr");
-        row.style.borderBottom = "1px solid var(--border-muted)";
-        if (idx % 2 === 1) {
-          row.style.background = "var(--bg-hover)";
-        }
+        row.className = "table-row";
 
         const cells = [
           rate.costRateId || "",
@@ -336,8 +285,8 @@ window.RateTablesManager = (function () {
 
         cells.forEach(cellText => {
           const td = document.createElement("td");
+          td.className = "table-cell";
           td.textContent = cellText;
-          td.style.padding = "6px";
           td.style.whiteSpace = "nowrap";
           td.style.overflow = "hidden";
           td.style.textOverflow = "ellipsis";
@@ -354,11 +303,11 @@ window.RateTablesManager = (function () {
     } else {
       // Empty state
       const emptyState = document.createElement("div");
-      emptyState.style.padding = "40px 20px";
-      emptyState.style.textAlign = "center";
-      emptyState.style.color = "var(--text-muted)";
-      emptyState.style.fontSize = "13px";
-      emptyState.innerHTML = "No rate tables imported yet. Click <strong>Import Rate Tables</strong> to get started.";
+      emptyState.className = "empty-state";
+      emptyState.innerHTML = `
+        <div class="empty-state-title">No Rate Tables Imported</div>
+        <div class="empty-state-subtitle">Click <strong>Import Rate Tables</strong> to get started.</div>
+      `;
       container.appendChild(emptyState);
     }
   }

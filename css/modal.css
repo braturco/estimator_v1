@@ -49,6 +49,8 @@
 .modal-body {
   padding: 10px 14px;
   overflow: auto;
+  flex: 1;
+  min-height: 0;
   font-size: 12px;
   color: var(--text);
 }

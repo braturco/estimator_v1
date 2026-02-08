@@ -64,6 +64,9 @@ window.showResourceRates = false;
 // Financial column mode
 window.financialMode = "detailed"; // "detailed" or "simple"
 
+// Units display mode: "split" = decompose into existing columns, "aggregate" = show Units Cost column
+window.unitsDisplayMode = "split";
+
 // Theme preference
 window.currentTheme = "dark"; // "dark" or "light"
 
@@ -118,6 +121,7 @@ function getAppState() {
     ohRates,
     currentTheme,
     financialMode,
+    unitsDisplayMode,
     collapsedNodes: Array.from(collapsedNodes || []),
     expandedLaborNodes: Array.from(expandedLaborNodes || [])
   };
@@ -138,6 +142,7 @@ function applyAppState(state) {
   if (state.ohRates && typeof state.ohRates === "object") window.ohRates = state.ohRates;
   if (state.currentTheme) window.currentTheme = state.currentTheme;
   if (state.financialMode) window.financialMode = state.financialMode;
+  if (state.unitsDisplayMode) window.unitsDisplayMode = state.unitsDisplayMode;
   if (Array.isArray(state.collapsedNodes)) window.collapsedNodes = new Set(state.collapsedNodes);
   if (Array.isArray(state.expandedLaborNodes)) window.expandedLaborNodes = new Set(state.expandedLaborNodes);
 }
