@@ -4,7 +4,9 @@
       "Bash(python:*)",
       "Bash(git checkout:*)",
       "Bash(grep:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nAdd Units Manager with subconsultants, financial integration, and display toggle\n\n- New Units Manager module \\(units-manager.js\\) with labor, subconsultants, and expenses sections\n- Unit costs decompose into financial buckets: labor → directLabor \\(with burden\\), subs → subcontractors, expenses → ODC\n- Split/Aggregate display toggle: split mode folds into existing columns, aggregate mode shows dedicated Units Cost/Sell columns\n- Updated calculations.js with unit item processing in calculateLeafNode, rollupNode, and updateFinancialCells\n- Rate system improvements: province mapping, cost rate integration, rate schedule manager updates\n- Business org manager, job levels, and resource manager refinements\n- UI standardization with CSS component classes, modal improvements\n\nCo-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)"
     ]
   }
 }

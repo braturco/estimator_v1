@@ -92,11 +92,28 @@ window.Calculations = (function () {
 
     const rawLabor = directLaborReg + directLaborOT;
 
-    // Add unit subs/expenses to direct subs/odc
-    const subs = Number(node.subcontractors || 0) + unitSubsCost;
-    const odc = Number(node.odc || 0) + unitExpCost;
-    const subsSell = Number(node.subcontractorsSell || 0);
-    const odcSell = Number(node.odcSell || 0);
+    // Sum raw expense values from activity data (source of truth)
+    // to avoid reading back accumulated values from node properties
+    let rawSubsCost = 0, rawOdcCost = 0, rawSubsSell = 0, rawOdcSell = 0;
+    if (entry && Array.isArray(entry.activities)) {
+      for (const activity of entry.activities) {
+        if (activity.expenses) {
+          for (const item of (activity.expenses.subs || [])) {
+            rawSubsCost += Number(item.cost || 0);
+            rawSubsSell += Number(item.sell || 0);
+          }
+          for (const item of (activity.expenses.odc || [])) {
+            rawOdcCost += Number(item.cost || 0);
+            rawOdcSell += Number(item.sell || 0);
+          }
+        }
+      }
+    }
+
+    const subs = rawSubsCost + unitSubsCost;
+    const odc = rawOdcCost + unitExpCost;
+    const subsSell = rawSubsSell;
+    const odcSell = rawOdcSell;
 
     const grossRevenue = revenue + subsSell + odcSell;
     const netRevenue = grossRevenue - subs - odc;

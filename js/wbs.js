@@ -605,7 +605,8 @@ function findNodeDepth(list, id, depth = 1) {
 
 function generateWBSCodes(nodes, prefix = "") {
   nodes.forEach((node, index) => {
-    node.code = prefix ? `${prefix}.${index + 1}` : `${index + 1}`;
+    const segment = node.customCode || String(index + 1);
+    node.code = prefix ? `${prefix}.${segment}` : segment;
     if (node.children && node.children.length > 0) {
       generateWBSCodes(node.children, node.code);
     }
@@ -732,6 +733,57 @@ function startInlineRename(labelEl) {
   };
 }
 
+function startInlineCodeEdit(codeEl, node) {
+  const currentSegment = node.customCode || node.code.split(".").pop();
+  const input = document.createElement("input");
+  input.type = "text";
+  input.value = currentSegment;
+  input.className = "wbs-inline-edit";
+  input.style.width = "80px";
+
+  codeEl.textContent = "";
+  codeEl.appendChild(input);
+  input.focus();
+  input.select();
+
+  function finish(commit) {
+    if (commit) {
+      const value = input.value.trim();
+      if (value && value !== String(findNodeIndex(node) + 1)) {
+        node.customCode = value;
+      } else {
+        delete node.customCode;
+      }
+    }
+    generateWBSCodes(WBS_DATA);
+    renderWBS();
+  }
+
+  input.onblur = () => finish(true);
+  input.onkeydown = e => {
+    if (e.key === "Enter") { e.preventDefault(); finish(true); }
+    if (e.key === "Escape") finish(false);
+  };
+}
+
+function findNodeIndex(targetNode) {
+  function findParentIndex(nodes) {
+    for (const node of nodes) {
+      if (node.children) {
+        const idx = node.children.findIndex(c => c.id === targetNode.id);
+        if (idx !== -1) return idx;
+        const deeper = findParentIndex(node.children);
+        if (deeper !== -1) return deeper;
+      }
+    }
+    return -1;
+  }
+  // Check if it's a top-level node
+  const topIdx = WBS_DATA.findIndex(n => n.id === targetNode.id);
+  if (topIdx !== -1) return topIdx;
+  return findParentIndex(WBS_DATA);
+}
+
 // ---------------------- formatting ---------------------
 function formatMoney(value) {
   const n = Number(value || 0);
@@ -791,13 +843,10 @@ function calculateLaborRollup(node, resourceId, type) {
   return total;
 }
 
-// Format date for display
+// Format date for display (avoids Date object to prevent timezone shifts)
 function formatDate(dateString) {
   if (!dateString) return "";
-  const date = new Date(dateString);
-  const year = date.getFullYear();
-  const month = String(date.getMonth() + 1).padStart(2, '0');
-  const day = String(date.getDate()).padStart(2, '0');
+  const [year, month, day] = dateString.split('-');
   return `${year}/${month}/${day}`;
 }
 
@@ -1216,7 +1265,7 @@ function renderWBSNode(container, node, level = 1) {
   }).join("");
 
   row.innerHTML = `
-    <div class="wbs-code">${node.code || ""}</div>
+    <div class="wbs-code${node.customCode ? ' wbs-code-custom' : ''}">${node.code || ""}</div>
 	<div class="${nameClass} wbs-indent-${level}" data-id="${node.id}">
 	  ${expandIconHtml}
 	  <span class="wbs-activity-label">${node.name}</span>
@@ -1776,6 +1825,16 @@ function renderWBSNode(container, node, level = 1) {
       e.stopPropagation();
       startInlineRename(labelEl);
     };
+  }
+
+  const codeEl = row.querySelector(".wbs-code");
+  if (codeEl && !node.isPermanent) {
+    codeEl.ondblclick = e => {
+      e.stopPropagation();
+      startInlineCodeEdit(codeEl, node);
+    };
+    codeEl.style.cursor = "pointer";
+    codeEl.title = "Double-click to override WBS code";
   }
 
   if (hasChildren && !collapsed) {

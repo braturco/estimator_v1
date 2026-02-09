@@ -5,7 +5,7 @@ window.EstimateExport = (function () {
   // Gather all data for export
   function gatherExportData() {
     return {
-      version: "2.0",
+      version: "2.1",
       exportDate: new Date().toISOString(),
       wbsData: window.WBS_DATA || [],
       wbsPills: window.wbsPills || {},
@@ -18,13 +18,19 @@ window.EstimateExport = (function () {
       currentTheme: window.currentTheme || "dark",
       financialMode: window.financialMode || "detailed",
       showResourceRates: window.showResourceRates || false,
+      unitsDisplayMode: window.unitsDisplayMode || "split",
+      mandatoryWBSTasks: window.mandatoryWBSTasks || [],
       rateTables: RateTables.getAllTables(),
       jobLevels: JobLevels.getAllLevels(),
       rateColumns: RateColumns.getAllColumns(),
       customResources: ResourceManager ? ResourceManager.getCustomResources() : [],
       importedNamedResources: ResourceManager ? ResourceManager.getImportedNamedResources() : [],
       importedUsages: localStorage.getItem("estimator_imported_usages_v1") ? JSON.parse(localStorage.getItem("estimator_imported_usages_v1")) : [],
-      importedRateTables: localStorage.getItem("estimator_imported_rate_tables_v1") ? JSON.parse(localStorage.getItem("estimator_imported_rate_tables_v1")) : []
+      importedRateTables: localStorage.getItem("estimator_imported_rate_tables_v1") ? JSON.parse(localStorage.getItem("estimator_imported_rate_tables_v1")) : [],
+      importedJobLevels: localStorage.getItem("estimator_imported_job_levels_csv") ? JSON.parse(localStorage.getItem("estimator_imported_job_levels_csv")) : [],
+      levelOrder: localStorage.getItem("estimator_level_order_v1") ? JSON.parse(localStorage.getItem("estimator_level_order_v1")) : null,
+      businessOrg: localStorage.getItem("estimator_business_org_v1") ? JSON.parse(localStorage.getItem("estimator_business_org_v1")) : [],
+      units: (typeof UnitsManager !== "undefined" && UnitsManager.getUnits) ? UnitsManager.getUnits() : []
     };
   }
 
@@ -90,6 +96,10 @@ window.EstimateExport = (function () {
     if (data.financialMode) window.financialMode = data.financialMode;
     if (typeof data.showResourceRates === "boolean") window.showResourceRates = data.showResourceRates;
     
+    // Restore UI preferences
+    if (data.unitsDisplayMode) window.unitsDisplayMode = data.unitsDisplayMode;
+    if (data.mandatoryWBSTasks) window.mandatoryWBSTasks = data.mandatoryWBSTasks;
+
     // Restore imported data
     if (data.importedNamedResources && ResourceManager) {
       ResourceManager.saveImportedNamedResources(data.importedNamedResources);
@@ -100,34 +110,40 @@ window.EstimateExport = (function () {
     if (data.importedRateTables) {
       localStorage.setItem("estimator_imported_rate_tables_v1", JSON.stringify(data.importedRateTables));
     }
-    
-    // Restore rate tables
+    if (data.importedJobLevels) {
+      localStorage.setItem("estimator_imported_job_levels_csv", JSON.stringify(data.importedJobLevels));
+    }
+    if (data.levelOrder) {
+      localStorage.setItem("estimator_level_order_v1", JSON.stringify(data.levelOrder));
+    }
+    if (data.businessOrg) {
+      localStorage.setItem("estimator_business_org_v1", JSON.stringify(data.businessOrg));
+    }
+    if (data.units) {
+      localStorage.setItem("estimator_units_v1", JSON.stringify(data.units));
+    }
+
+    // Restore rate tables (write directly — updateCustomTable fails on clean import)
     if (data.rateTables && Array.isArray(data.rateTables)) {
       const customTables = data.rateTables.filter(t => t.type === "custom");
-      customTables.forEach(table => {
-        RateTables.updateCustomTable(table.id, table);
-      });
+      localStorage.setItem("estimator_custom_rate_tables_v1", JSON.stringify(customTables));
     }
-    
-    // Restore job levels
+
+    // Restore job levels (write directly — updateCustomLevel has arg mismatch and fails on clean import)
     if (data.jobLevels && Array.isArray(data.jobLevels)) {
       const customLevels = data.jobLevels.filter(l => l.type === "custom");
-      customLevels.forEach(level => {
-        JobLevels.updateCustomLevel(level.id, level.label, level.costRegular, level.costOT, level.sellRates);
-      });
+      localStorage.setItem("estimator_custom_job_levels_v1", JSON.stringify(customLevels));
     }
-    
-    // Restore rate columns
+
+    // Restore rate columns (write directly — addCustomColumn generates new IDs, causing duplicates)
     if (data.rateColumns && Array.isArray(data.rateColumns)) {
       const customColumns = data.rateColumns.filter(c => c.custom === true);
-      customColumns.forEach(col => {
-        RateColumns.addCustomColumn(col.label, col.description);
-      });
+      localStorage.setItem("estimator_custom_rate_columns_v1", JSON.stringify(customColumns));
     }
-    
-    // Restore resources
+
+    // Restore custom resources
     if (data.customResources && Array.isArray(data.customResources)) {
-      // ResourceManager handles this
+      localStorage.setItem("estimator_custom_resources_v1", JSON.stringify(data.customResources));
     }
     
     // Save to localStorage
