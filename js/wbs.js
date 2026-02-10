@@ -130,6 +130,22 @@ function openExpenseDetails(nodeId, type, activityId) {
 
   const items = activity.expenses[type];
   const title = type === "subs" ? "Subconsultants" : "ODC";
+  const isODC = type === "odc";
+
+  // Build usages list for ODC description picker
+  let usagesList = [];
+  const usageNames = new Set();
+  if (isODC && window.UsagesManager && UsagesManager.getImportedUsages) {
+    usagesList = UsagesManager.getImportedUsages().filter(u => u.name);
+    usagesList.forEach(u => usageNames.add(u.name));
+  }
+
+  const gridCols = isODC
+    ? "110px 1fr 100px 80px 100px 32px"
+    : "1fr 100px 80px 100px 32px";
+
+  // Track body-appended dropdowns for cleanup (hoisted so onSave/onClose can access)
+  const activeDropdowns = [];
 
   Modal.open({
     title: `${title} Details — ${activity.name}`,
@@ -139,19 +155,24 @@ function openExpenseDetails(nodeId, type, activityId) {
 
       const header = document.createElement("div");
       header.style.display = "grid";
-      header.style.gridTemplateColumns = "1fr 100px 80px 100px 32px";
+      header.style.gridTemplateColumns = gridCols;
       header.style.gap = "6px";
       header.style.fontSize = "11px";
       header.style.fontWeight = "600";
       header.style.color = "var(--text-muted)";
       header.style.marginBottom = "6px";
-      header.innerHTML = `
-        <div>Description</div>
-        <div style="text-align:right;">Cost</div>
-        <div style="text-align:right;">Markup %</div>
-        <div style="text-align:right;">Sell</div>
-        <div></div>
-      `;
+      header.innerHTML = isODC
+        ? `<div>Expense Type</div>
+           <div>Description</div>
+           <div style="text-align:right;">Cost</div>
+           <div style="text-align:right;">Markup %</div>
+           <div style="text-align:right;">Sell</div>
+           <div></div>`
+        : `<div>Description</div>
+           <div style="text-align:right;">Cost</div>
+           <div style="text-align:right;">Markup %</div>
+           <div style="text-align:right;">Sell</div>
+           <div></div>`;
       container.appendChild(header);
 
       const list = document.createElement("div");
@@ -161,21 +182,108 @@ function openExpenseDetails(nodeId, type, activityId) {
       container.appendChild(list);
 
       const renderRows = () => {
+        // Remove any body-appended dropdowns from previous render
+        activeDropdowns.forEach(d => { if (d.parentNode) d.parentNode.removeChild(d); });
+        activeDropdowns.length = 0;
         list.innerHTML = "";
         items.forEach((item, idx) => {
           const row = document.createElement("div");
           row.style.display = "grid";
-          row.style.gridTemplateColumns = "1fr 100px 80px 100px 32px";
+          row.style.gridTemplateColumns = gridCols;
           row.style.gap = "6px";
           row.style.alignItems = "center";
 
+          // Expense Type dropdown (ODC only)
+          let typeSelect = null;
+          if (isODC) {
+            typeSelect = document.createElement("select");
+            typeSelect.style.fontSize = "12px";
+            ["Expenses", "Travel", "Equipment"].forEach(opt => {
+              const o = document.createElement("option");
+              o.value = opt;
+              o.textContent = opt;
+              typeSelect.appendChild(o);
+            });
+            typeSelect.value = item.expenseType || "Expenses";
+            typeSelect.addEventListener("change", () => {
+              item.expenseType = typeSelect.value;
+            });
+          }
+
+          // Description field with custom usages dropdown for ODC
+          const descWrapper = document.createElement("div");
+          descWrapper.style.position = "relative";
+
           const desc = document.createElement("input");
           desc.type = "text";
-          desc.placeholder = "Description";
+          desc.placeholder = isODC && usagesList.length > 0 ? "Type or pick from usages ▾" : "Description";
           desc.value = item.description || "";
+
+          let dropdown = null;
+
+          if (isODC && usagesList.length > 0) {
+            dropdown = document.createElement("div");
+            dropdown.style.cssText = "position:fixed;z-index:99999;background:var(--bg-panel,#fff);border:1px solid var(--border,#ccc);border-radius:4px;max-height:350px;overflow:auto;display:none;box-shadow:0 4px 12px rgba(0,0,0,.25);";
+
+            // Header row
+            const dh = document.createElement("div");
+            dh.style.cssText = "display:grid;grid-template-columns:70px 1fr 70px 50px;gap:6px;padding:4px 8px;font-size:10px;font-weight:600;color:var(--text-muted);border-bottom:1px solid var(--border,#ccc);position:sticky;top:0;background:var(--bg-panel,#fff);";
+            dh.innerHTML = "<div>ID</div><div>Name</div><div style='text-align:right'>Price</div><div>Unit</div>";
+            dropdown.appendChild(dh);
+
+            // Position the fixed dropdown beneath the input
+            const positionDropdown = () => {
+              const rect = desc.getBoundingClientRect();
+              dropdown.style.top = rect.bottom + 2 + "px";
+              dropdown.style.left = rect.left + "px";
+              dropdown.style.width = Math.max(rect.width, 380) + "px";
+            };
+
+            const buildRows = (filter) => {
+              while (dropdown.children.length > 1) dropdown.removeChild(dropdown.lastChild);
+              const term = (filter || "").toLowerCase();
+              const filtered = term ? usagesList.filter(u => u.name.toLowerCase().includes(term) || (u.code || "").toLowerCase().includes(term)) : usagesList;
+              filtered.forEach(u => {
+                const dr = document.createElement("div");
+                dr.style.cssText = "display:grid;grid-template-columns:70px 1fr 70px 50px;gap:6px;padding:4px 8px;font-size:11px;cursor:pointer;";
+                dr.addEventListener("mouseenter", () => dr.style.background = "var(--bg-hover,#f0f0f0)");
+                dr.addEventListener("mouseleave", () => dr.style.background = "");
+                dr.innerHTML = `<div style="color:var(--text-muted)">${u.code || ""}</div><div>${u.name}</div><div style="text-align:right">$${(u.rate || 0).toFixed(2)}</div><div style="color:var(--text-muted)">${u.unit || ""}</div>`;
+                dr.addEventListener("mousedown", (e) => {
+                  e.preventDefault();
+                  desc.value = u.name;
+                  item.description = u.name;
+                  item.expenseType = "Equipment";
+                  if (typeSelect) typeSelect.value = "Equipment";
+                  dropdown.style.display = "none";
+                });
+                dropdown.appendChild(dr);
+              });
+              if (filtered.length === 0) {
+                const empty = document.createElement("div");
+                empty.style.cssText = "padding:8px;font-size:11px;color:var(--text-muted);text-align:center;";
+                empty.textContent = "No matching usages";
+                dropdown.appendChild(empty);
+              }
+            };
+
+            const showDropdown = () => { buildRows(desc.value); positionDropdown(); dropdown.style.display = "block"; };
+            const hideDropdown = () => { dropdown.style.display = "none"; };
+
+            desc.addEventListener("focus", showDropdown);
+            desc.addEventListener("blur", hideDropdown);
+            desc.addEventListener("input", showDropdown);
+
+            // Append to body so it escapes all overflow containers
+            document.body.appendChild(dropdown);
+            activeDropdowns.push(dropdown);
+          }
+
           desc.addEventListener("input", () => {
             item.description = desc.value;
           });
+
+          descWrapper.appendChild(desc);
 
           const cost = document.createElement("input");
           cost.type = "number";
@@ -223,7 +331,8 @@ function openExpenseDetails(nodeId, type, activityId) {
             renderRows();
           });
 
-          row.appendChild(desc);
+          if (isODC && typeSelect) row.appendChild(typeSelect);
+          row.appendChild(descWrapper);
           row.appendChild(cost);
           row.appendChild(markupInput);
           row.appendChild(sell);
@@ -237,7 +346,7 @@ function openExpenseDetails(nodeId, type, activityId) {
       addBtn.textContent = "+ Add Item";
       addBtn.style.marginTop = "8px";
       addBtn.addEventListener("click", () => {
-        items.push({ id: crypto.randomUUID(), description: "", cost: 0, markup: 10, sell: 0 });
+        items.push({ id: crypto.randomUUID(), description: "", expenseType: "Expenses", cost: 0, markup: 10, sell: 0 });
         renderRows();
       });
 
@@ -245,10 +354,15 @@ function openExpenseDetails(nodeId, type, activityId) {
       renderRows();
     },
     onSave: () => {
+      activeDropdowns.forEach(d => { if (d.parentNode) d.parentNode.removeChild(d); });
+      activeDropdowns.length = 0;
       updateExpenseTotals(nodeId);
-      // Always do a full render to ensure icon appears
       renderWBS();
       Modal.close();
+    },
+    onClose: () => {
+      activeDropdowns.forEach(d => { if (d.parentNode) d.parentNode.removeChild(d); });
+      activeDropdowns.length = 0;
     }
   });
 }
@@ -1603,53 +1717,53 @@ function renderWBSNode(container, node, level = 1) {
           if (!activity.start) activity.start = "";
           if (!activity.finish) activity.finish = "";
 
-          // Helper to format date for display (yyyy/mm/dd)
-          const formatForDisplay = (isoDate) => {
-            if (!isoDate) return "";
-            const [year, month, day] = isoDate.split('-');
-            return `${year}/${month}/${day}`;
+          // Helpers: ISO (yyyy-mm-dd) <-> display (yyyy/mm/dd)
+          const isoToDisplay = (iso) => iso ? iso.replace(/-/g, '/') : "";
+          const displayToISO = (disp) => disp ? disp.replace(/\//g, '-') : "";
+
+          // Build a date cell with text input + hidden date picker
+          const makeDateCell = (prop) => {
+            const cell = document.createElement("div");
+            cell.className = "schedule-col-cell";
+            cell.style.position = "relative";
+
+            const text = document.createElement("input");
+            text.type = "text";
+            text.className = "wbs-date-input";
+            text.placeholder = "YYYY/MM/DD";
+            text.value = isoToDisplay(activity[prop] || "");
+
+            const picker = document.createElement("input");
+            picker.type = "date";
+            picker.style.cssText = "position:absolute;top:0;left:0;width:100%;height:100%;opacity:0;cursor:pointer;";
+            picker.value = activity[prop] || "";
+
+            // Typing in the text field
+            text.addEventListener("change", () => {
+              const iso = displayToISO(text.value.trim());
+              if (/^\d{4}-\d{2}-\d{2}$/.test(iso)) {
+                activity[prop] = iso;
+                picker.value = iso;
+                if (window.Calculations && window.Calculations.recalculate) window.Calculations.recalculate();
+                renderWBS();
+              }
+            });
+
+            // Picking from the calendar
+            picker.addEventListener("change", () => {
+              activity[prop] = picker.value;
+              text.value = isoToDisplay(picker.value);
+              if (window.Calculations && window.Calculations.recalculate) window.Calculations.recalculate();
+              renderWBS();
+            });
+
+            cell.appendChild(text);
+            cell.appendChild(picker);
+            return cell;
           };
 
-          // Helper to parse display format to ISO (yyyy-mm-dd)
-          const parseToISO = (displayDate) => {
-            if (!displayDate) return "";
-            const cleaned = displayDate.replace(/\//g, '-');
-            return cleaned; // yyyy/mm/dd -> yyyy-mm-dd
-          };
-
-          // Start date cell
-          const startCell = document.createElement("div");
-          startCell.className = "schedule-col-cell";
-          const startInput = document.createElement("input");
-          startInput.type = "date";
-          startInput.className = "wbs-date-input";
-          startInput.value = activity.start || "";
-          startInput.addEventListener("change", () => {
-            activity.start = startInput.value;
-            if (window.Calculations && window.Calculations.recalculate) {
-              window.Calculations.recalculate();
-            }
-            renderWBS();
-          });
-          startCell.appendChild(startInput);
-          activityRow.appendChild(startCell);
-
-          // Finish date cell
-          const finishCell = document.createElement("div");
-          finishCell.className = "schedule-col-cell";
-          const finishInput = document.createElement("input");
-          finishInput.type = "date";
-          finishInput.className = "wbs-date-input";
-          finishInput.value = activity.finish || "";
-          finishInput.addEventListener("change", () => {
-            activity.finish = finishInput.value;
-            if (window.Calculations && window.Calculations.recalculate) {
-              window.Calculations.recalculate();
-            }
-            renderWBS();
-          });
-          finishCell.appendChild(finishInput);
-          activityRow.appendChild(finishCell);
+          activityRow.appendChild(makeDateCell("start"));
+          activityRow.appendChild(makeDateCell("finish"));
         }
 
         const tagsCell = document.createElement("div");
