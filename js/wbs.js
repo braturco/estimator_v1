@@ -2883,6 +2883,24 @@ function wireTopButtons() {
     };
   }
 
+  // Refresh Costs button — re-lookup cost rates from imported table for all resources
+  const refreshCostsBtn = document.getElementById("refreshCostsBtn");
+  if (refreshCostsBtn) {
+    refreshCostsBtn.onclick = () => {
+      let updated = 0;
+      laborResources.forEach(res => {
+        if (!res.costRateId) return;
+        const freshCost = lookupCostRateByCostRateId(res.costRateId);
+        if (freshCost !== null && freshCost !== res.costRate) {
+          res.costRate = freshCost;
+          updated++;
+        }
+      });
+      renderWBS();
+      console.log(`[Refresh Costs] Updated ${updated} of ${laborResources.length} resources`);
+    };
+  }
+
   if (addResourceBtn) {
     addResourceBtn.onclick = async () => {
       // Open resource picker modal
