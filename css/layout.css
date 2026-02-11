@@ -214,8 +214,8 @@ body {
 
 .wbs-container {
   border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 40px 0 8px 0;
+  border-radius: 0;
+  padding: 40px 0 0 0;
   padding-top: 48px;
   background: var(--bg-panel);
   overflow-y: scroll; /* Always show scrollbar */
@@ -244,15 +244,15 @@ body {
   display: grid;
   grid-template-columns: var(--wbs-columns);
   align-items: stretch;
-  padding: 4px 8px 4px 0;
-  border-bottom: 1px solid var(--border);
-  font-size: 12px;
+  padding: 0;
+  border-bottom: 1px solid var(--border-muted);
+  font-size: 11px;
   position: relative;
   isolation: isolate;
   min-width: max-content;
   overflow: visible;
   background: var(--bg-panel);
-  min-height: 32px;
+  min-height: 22px;
 }
 
 /* All cells have backgrounds and display properties */
@@ -260,7 +260,10 @@ body {
   background: var(--bg-panel);
   display: flex;
   align-items: center;
-  min-height: 24px;
+  min-height: 22px;
+  border-right: 1px solid var(--border-muted);
+  padding: 0 4px;
+  box-sizing: border-box;
 }
 
 /* Freeze first two columns (WBS and Activity) */
@@ -270,19 +273,19 @@ body {
   z-index: 15;
   background: #020617 !important;
   align-self: stretch;
-  margin: -4px 0 -5px 0;
-  padding: 4px 0 5px 0;
-  box-shadow: inset 0 -1px 0 0 var(--border);
+  margin: 0 0 -1px 0;
+  padding: 0 4px 1px 4px;
+  box-shadow: inset 0 -1px 0 0 var(--border-muted);
 }
 
 .wbs-row > *:nth-child(1) {
   left: 0;
-  padding-left: 8px;
+  padding-left: 6px;
 }
 
 .wbs-row > *:nth-child(2) {
   left: 100px; /* Width of first column */
-  padding-left: 8px; /* Extra padding for visual separation */
+  padding-left: 6px;
 }
 
 /* Add border after frozen columns when labor mode is active */
@@ -294,20 +297,18 @@ body {
 .wbs-header > *:nth-child(1),
 .wbs-header > *:nth-child(2) {
   z-index: 101;
+  background: var(--bg-hover) !important;
 }
 
-.wbs-header > *:nth-child(1) {
-  background: #020617 !important;
+/* Activity rows: lighter background to distinguish from summary rows */
+.labor-activity-row,
+.labor-activity-row > * {
+  background: #0a1628;
 }
 
-.wbs-header > *:nth-child(2) {
-  background: #020617 !important;
-}
-
-/* Activity rows need their own background */
 .labor-activity-row > *:nth-child(1),
 .labor-activity-row > *:nth-child(2) {
-  background: #020617 !important;
+  background: #0a1628 !important;
 }
 
 /* Ensure indent classes work on activity rows */
@@ -325,10 +326,10 @@ body {
   box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.35);
 }
 
-/* Active activity row frozen columns */
+/* Active activity row frozen columns — opaque so scrolled content doesn't bleed through */
 .wbs-row-active > *:nth-child(1),
 .wbs-row-active > *:nth-child(2) {
-  background: rgba(56, 189, 248, 0.10) !important;
+  background: #071a2b !important;
 }
 
 /* Debug: red cell outlines for troubleshooting */
@@ -341,18 +342,23 @@ body {
 
 .wbs-header {
   font-weight: 600;
-  background: var(--bg-panel);
+  background: var(--bg-hover);
   position: sticky;
   top: 0;
   z-index: 100;
-  border-bottom: 1px solid var(--border-muted);
+  border-bottom: 2px solid var(--border);
+  font-size: 11px;
+}
+
+.wbs-header > * {
+  background: var(--bg-hover) !important;
 }
 
 .col-header {
   position: relative;
   display: flex;
   align-items: center;
-  padding-right: 4px;
+  padding: 2px 4px;
   user-select: none;
 }
 
@@ -403,28 +409,38 @@ body {
 .wbs-totals-row {
   display: grid;
   grid-template-columns: var(--wbs-columns);
-  padding: 4px 8px 4px 0;
-  background: var(--bg);
-  border-top: 1px solid var(--border-muted);
+  padding: 0;
+  background: var(--bg-hover);
+  border-top: 2px solid var(--border);
   font-weight: 600;
+  font-size: 11px;
   position: static;
+}
+
+.wbs-totals-row > * {
+  padding: 2px 4px;
+  border-right: 1px solid var(--border-muted);
+  min-height: 24px;
+  display: flex;
+  align-items: center;
+  box-sizing: border-box;
 }
 
 .wbs-totals-row > *:nth-child(1),
 .wbs-totals-row > *:nth-child(2) {
   position: sticky;
-  background: #111827 !important;
+  background: var(--bg-hover) !important;
   z-index: 10;
 }
 
 .wbs-totals-row > *:nth-child(1) {
   left: 0;
-  padding-left: 8px;
+  padding-left: 6px;
 }
 
 .wbs-totals-row > *:nth-child(2) {
   left: 100px;
-  padding-left: 8px;
+  padding-left: 6px;
 }
 
 /* ---------------------------------------------------------
@@ -434,7 +450,7 @@ body {
 .wbs-fin-cell {
   text-align: right;
   justify-content: flex-end;
-  padding-right: 6px;
+  padding-right: 4px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

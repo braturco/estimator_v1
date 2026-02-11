@@ -50,14 +50,28 @@ window.UnitsManager = (function () {
   function calculateKPIs(unit) {
     let totalLaborCostReg = 0;
     let totalLaborCostOT = 0;
+    let directLaborBase = 0; // All hours at reg rate (attracts burden)
+    let otPremium = 0;       // (OT rate - Reg rate) * OT hours (no burden)
     for (const item of unit.laborItems) {
-      const regCost = (item.qtyReg || 0) * (item.costRate || 0);
-      const otCost = (item.qtyOT || 0) * (item.costRate || 0) * 1.5;
+      const rate = item.costRate || 0;
+      const regCost = (item.qtyReg || 0) * rate;
+      const otCost = (item.qtyOT || 0) * rate * 1.5;
       item.totalCost = regCost + otCost;
       totalLaborCostReg += regCost;
       totalLaborCostOT += otCost;
+      // Burden base: all hours at regular rate
+      directLaborBase += ((item.qtyReg || 0) + (item.qtyOT || 0)) * rate;
+      // OT premium: unburdened
+      otPremium += (item.qtyOT || 0) * rate * 0.5;
     }
     const totalLaborCost = totalLaborCostReg + totalLaborCostOT;
+
+    // Burden: only applies to directLaborBase, not otPremium
+    const fringeRegRate = window.ohRates?.regular?.laborFringe ?? 0;
+    const ohRegRate = (window.ohRates?.regular?.operatingCosts ?? 0) + (window.ohRates?.regular?.operatingOH ?? 0);
+    const fringeBurden = directLaborBase * fringeRegRate;
+    const ohBurden = directLaborBase * ohRegRate;
+    const burdenedLabor = totalLaborCost + fringeBurden + ohBurden;
 
     let totalSubsCost = 0;
     if (Array.isArray(unit.subItems)) {
@@ -72,13 +86,16 @@ window.UnitsManager = (function () {
       totalExpenseCost += item.totalCost;
     }
 
-    const totalUnitCost = totalLaborCost + totalSubsCost + totalExpenseCost;
+    const totalUnitCost = burdenedLabor + totalSubsCost + totalExpenseCost;
     const sellPrice = parseFloat(unit.sellPrice) || 0;
-    const dlm = totalLaborCost > 0 ? sellPrice / totalLaborCost : 0;
-    const netMargin = sellPrice - totalUnitCost;
-    const nmPct = sellPrice > 0 ? ((sellPrice - totalUnitCost) / sellPrice) * 100 : 0;
+    const netRevenue = sellPrice - totalSubsCost - totalExpenseCost;
+    const dlm = totalLaborCost > 0 ? netRevenue / totalLaborCost : 0;
+    const gm = sellPrice - totalUnitCost;
+    const gmPct = sellPrice > 0 ? (gm / sellPrice) * 100 : 0;
+    const netMargin = netRevenue - burdenedLabor;
+    const nmPct = netRevenue > 0 ? (netMargin / netRevenue) * 100 : 0;
 
-    return { totalLaborCost, totalLaborCostReg, totalLaborCostOT, totalSubsCost, totalExpenseCost, totalUnitCost, sellPrice, dlm, netMargin, nmPct };
+    return { totalLaborCost, totalLaborCostReg, totalLaborCostOT, directLaborBase, otPremium, fringeBurden, ohBurden, burdenedLabor, totalSubsCost, totalExpenseCost, totalUnitCost, sellPrice, netRevenue, dlm, gm, gmPct, netMargin, nmPct };
   }
 
   // =================== FORMAT HELPERS ===================
@@ -186,7 +203,7 @@ window.UnitsManager = (function () {
         { label: "Cost", value: fmt(kpis.totalUnitCost) },
         { label: "Sell", value: fmt(kpis.sellPrice) },
         { label: "DLM", value: kpis.dlm.toFixed(2) + "x" },
-        { label: "NM%", value: kpis.nmPct.toFixed(1) + "%" }
+        { label: "GM%", value: kpis.gmPct.toFixed(1) + "%" }
       ];
       items.forEach(item => {
         const cell = document.createElement("div");
@@ -261,11 +278,22 @@ window.UnitsManager = (function () {
     function updateKPIs() {
       const kpis = calculateKPIs(unit);
       if (kpiRefs.laborCost) kpiRefs.laborCost.textContent = fmt(kpis.totalLaborCost);
+      if (kpiRefs.fringeBurden) kpiRefs.fringeBurden.textContent = fmt(kpis.fringeBurden);
+      if (kpiRefs.ohBurden) kpiRefs.ohBurden.textContent = fmt(kpis.ohBurden);
+      if (kpiRefs.burdenedLabor) kpiRefs.burdenedLabor.textContent = fmt(kpis.burdenedLabor);
       if (kpiRefs.subsCost) kpiRefs.subsCost.textContent = fmt(kpis.totalSubsCost);
       if (kpiRefs.expenseCost) kpiRefs.expenseCost.textContent = fmt(kpis.totalExpenseCost);
       if (kpiRefs.totalCost) kpiRefs.totalCost.textContent = fmt(kpis.totalUnitCost);
       if (kpiRefs.sellPrice) kpiRefs.sellPrice.textContent = fmt(kpis.sellPrice);
       if (kpiRefs.dlm) kpiRefs.dlm.textContent = kpis.dlm.toFixed(2) + "x";
+      if (kpiRefs.gm) {
+        kpiRefs.gm.textContent = fmt(kpis.gm);
+        kpiRefs.gm.style.color = kpis.gm < 0 ? "#ef4444" : "#10b981";
+      }
+      if (kpiRefs.gmPct) {
+        kpiRefs.gmPct.textContent = kpis.gmPct.toFixed(1) + "%";
+        kpiRefs.gmPct.style.color = kpis.gmPct < 0 ? "#ef4444" : "#10b981";
+      }
       if (kpiRefs.netMargin) {
         kpiRefs.netMargin.textContent = fmt(kpis.netMargin);
         kpiRefs.netMargin.style.color = kpis.netMargin < 0 ? "#ef4444" : "#10b981";
@@ -279,6 +307,16 @@ window.UnitsManager = (function () {
       // Update expense row totals
       updateExpenseTotals();
     }
+
+    // === TWO-COLUMN LAYOUT: left (content) + right (sticky KPI) ===
+    const wrapper = document.createElement("div");
+    wrapper.style.display = "flex";
+    wrapper.style.gap = "16px";
+    wrapper.style.alignItems = "flex-start";
+
+    const leftCol = document.createElement("div");
+    leftCol.style.flex = "1";
+    leftCol.style.minWidth = "0";
 
     // === HEADER SECTION ===
     const headerSection = document.createElement("div");
@@ -305,7 +343,7 @@ window.UnitsManager = (function () {
     headerSection.appendChild(nameGroup.wrapper);
     headerSection.appendChild(billingGroup.wrapper);
     headerSection.appendChild(sellGroup.wrapper);
-    container.appendChild(headerSection);
+    leftCol.appendChild(headerSection);
 
     // === LABOR SECTION ===
     const laborSection = document.createElement("div");
@@ -567,7 +605,7 @@ window.UnitsManager = (function () {
       renderLaborRows();
     });
     laborSection.appendChild(addLaborBtn);
-    container.appendChild(laborSection);
+    leftCol.appendChild(laborSection);
 
     // === SUBCONSULTANTS SECTION ===
     const subsSection = document.createElement("div");
@@ -659,7 +697,7 @@ window.UnitsManager = (function () {
       renderSubRows();
     });
     subsSection.appendChild(addSubBtn);
-    container.appendChild(subsSection);
+    leftCol.appendChild(subsSection);
 
     // === EXPENSES SECTION ===
     const expenseSection = document.createElement("div");
@@ -895,25 +933,35 @@ window.UnitsManager = (function () {
       renderExpenseRows();
     });
     expenseSection.appendChild(addExpenseBtn);
-    container.appendChild(expenseSection);
+    leftCol.appendChild(expenseSection);
 
-    // === KPI PANEL ===
+    // === KPI PANEL (right column, sticky) ===
+    const rightCol = document.createElement("div");
+    rightCol.style.width = "220px";
+    rightCol.style.flexShrink = "0";
+    rightCol.style.position = "sticky";
+    rightCol.style.top = "0";
+    rightCol.style.alignSelf = "flex-start";
+
     const kpiSection = document.createElement("div");
-    kpiSection.className = "modal-section";
     kpiSection.style.background = "var(--bg-hover)";
+    kpiSection.style.borderRadius = "6px";
+    kpiSection.style.padding = "12px";
 
     const kpiTitle = document.createElement("div");
-    kpiTitle.className = "modal-section-title";
+    kpiTitle.style.fontSize = "12px";
+    kpiTitle.style.fontWeight = "700";
+    kpiTitle.style.marginBottom = "10px";
     kpiTitle.textContent = "Unit Summary";
     kpiSection.appendChild(kpiTitle);
 
-    const kpiGrid = document.createElement("div");
-    kpiGrid.style.display = "grid";
-    kpiGrid.style.gridTemplateColumns = "1fr 1fr";
-    kpiGrid.style.gap = "8px 24px";
-    kpiGrid.style.fontSize = "12px";
+    const kpiList = document.createElement("div");
+    kpiList.style.display = "flex";
+    kpiList.style.flexDirection = "column";
+    kpiList.style.gap = "6px";
+    kpiList.style.fontSize = "11px";
 
-    function createKPIRow(label, ref) {
+    function createKPIRow(label, ref, isBold) {
       const row = document.createElement("div");
       row.style.display = "flex";
       row.style.justifyContent = "space-between";
@@ -925,7 +973,7 @@ window.UnitsManager = (function () {
 
       const val = document.createElement("span");
       val.style.fontFamily = "monospace";
-      val.style.fontWeight = "600";
+      val.style.fontWeight = isBold ? "700" : "600";
       val.textContent = "$0.00";
 
       kpiRefs[ref] = val;
@@ -934,17 +982,36 @@ window.UnitsManager = (function () {
       return row;
     }
 
-    kpiGrid.appendChild(createKPIRow("Total Labor Cost", "laborCost"));
-    kpiGrid.appendChild(createKPIRow("Sell Price", "sellPrice"));
-    kpiGrid.appendChild(createKPIRow("Total Subs Cost", "subsCost"));
-    kpiGrid.appendChild(createKPIRow("DLM", "dlm"));
-    kpiGrid.appendChild(createKPIRow("Total Expense Cost", "expenseCost"));
-    kpiGrid.appendChild(createKPIRow("Net Margin", "netMargin"));
-    kpiGrid.appendChild(createKPIRow("Total Unit Cost", "totalCost"));
-    kpiGrid.appendChild(createKPIRow("NM%", "nmPct"));
+    function createSeparator() {
+      const sep = document.createElement("div");
+      sep.style.borderTop = "1px solid var(--border)";
+      sep.style.margin = "2px 0";
+      return sep;
+    }
 
-    kpiSection.appendChild(kpiGrid);
-    container.appendChild(kpiSection);
+    kpiList.appendChild(createKPIRow("Direct Labor", "laborCost"));
+    kpiList.appendChild(createKPIRow("Fringe Burden", "fringeBurden"));
+    kpiList.appendChild(createKPIRow("OH Burden", "ohBurden"));
+    kpiList.appendChild(createKPIRow("Burdened Labor", "burdenedLabor", true));
+    kpiList.appendChild(createKPIRow("Subs Cost", "subsCost"));
+    kpiList.appendChild(createKPIRow("Expense Cost", "expenseCost"));
+    kpiList.appendChild(createSeparator());
+    kpiList.appendChild(createKPIRow("Total Unit Cost", "totalCost", true));
+    kpiList.appendChild(createKPIRow("Sell Price", "sellPrice", true));
+    kpiList.appendChild(createSeparator());
+    kpiList.appendChild(createKPIRow("DLM", "dlm"));
+    kpiList.appendChild(createKPIRow("Gross Margin", "gm"));
+    kpiList.appendChild(createKPIRow("GM%", "gmPct"));
+    kpiList.appendChild(createKPIRow("Net Margin", "netMargin"));
+    kpiList.appendChild(createKPIRow("NM%", "nmPct"));
+
+    kpiSection.appendChild(kpiList);
+    rightCol.appendChild(kpiSection);
+
+    // Assemble layout
+    wrapper.appendChild(leftCol);
+    wrapper.appendChild(rightCol);
+    container.appendChild(wrapper);
 
     // Initial render
     renderLaborRows();

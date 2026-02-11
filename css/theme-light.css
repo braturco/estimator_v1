@@ -30,26 +30,35 @@
   background-color: #f9fafb !important;
 }
 
+:root[data-theme="light"] .wbs-header > * {
+  background: #e5e7eb !important;
+}
+
 :root[data-theme="light"] .wbs-header > *:nth-child(1),
 :root[data-theme="light"] .wbs-header > *:nth-child(2) {
-  background: #f9fafb !important;
-  background-color: #f9fafb !important;
+  background: #e5e7eb !important;
+  background-color: #e5e7eb !important;
+}
+
+:root[data-theme="light"] .labor-activity-row,
+:root[data-theme="light"] .labor-activity-row > * {
+  background: #ffffff;
 }
 
 :root[data-theme="light"] .labor-activity-row > *:nth-child(1),
 :root[data-theme="light"] .labor-activity-row > *:nth-child(2) {
-  background: #f9fafb !important;
-  background-color: #f9fafb !important;
+  background: #ffffff !important;
+  background-color: #ffffff !important;
 }
 
 :root[data-theme="light"] .wbs-row-selected > *:nth-child(1),
 :root[data-theme="light"] .wbs-row-selected > *:nth-child(2) {
-  background: rgba(37, 99, 235, 0.12) !important;
+  background: #e0e8f9 !important;
 }
 
 :root[data-theme="light"] .wbs-row-active > *:nth-child(1),
 :root[data-theme="light"] .wbs-row-active > *:nth-child(2) {
-  background: rgba(56, 189, 248, 0.10) !important;
+  background: #e6f4fb !important;
 }
 
 :root[data-theme="light"] .wbs-rate-detail-row > *:nth-child(1),
@@ -59,7 +68,11 @@
 
 :root[data-theme="light"] .wbs-totals-row > *:nth-child(1),
 :root[data-theme="light"] .wbs-totals-row > *:nth-child(2) {
-  background: #ffffff !important;
+  background: #e5e7eb !important;
+}
+
+:root[data-theme="light"] .wbs-totals-row > * {
+  background: #e5e7eb;
 }
 
 /* Estimate Types */
@@ -154,6 +167,11 @@
 :root[data-theme="light"] .wbs-row-selected {
   background: rgba(37, 99, 235, 0.1);
   border-left: 3px solid var(--accent);
+}
+
+/* WBS labor inputs should be transparent until focused */
+:root[data-theme="light"] .wbs-labor-input {
+  background: transparent;
 }
 
 /* Labor input active row */

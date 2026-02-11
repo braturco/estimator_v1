@@ -141,7 +141,7 @@ function openExpenseDetails(nodeId, type, activityId) {
   }
 
   const gridCols = isODC
-    ? "110px 1fr 100px 80px 100px 32px"
+    ? "110px 1fr 50px 50px 70px 80px 70px 80px 32px"
     : "1fr 100px 80px 100px 32px";
 
   // Track body-appended dropdowns for cleanup (hoisted so onSave/onClose can access)
@@ -164,6 +164,9 @@ function openExpenseDetails(nodeId, type, activityId) {
       header.innerHTML = isODC
         ? `<div>Expense Type</div>
            <div>Description</div>
+           <div style="text-align:right;">Qty</div>
+           <div>Unit</div>
+           <div style="text-align:right;">Unit Rate</div>
            <div style="text-align:right;">Cost</div>
            <div style="text-align:right;">Markup %</div>
            <div style="text-align:right;">Sell</div>
@@ -255,6 +258,18 @@ function openExpenseDetails(nodeId, type, activityId) {
                   item.description = u.name;
                   item.expenseType = "Equipment";
                   if (typeSelect) typeSelect.value = "Equipment";
+                  // Auto-populate qty, unit, unit rate from usage
+                  item.unit = u.unit || "";
+                  item.unitRate = u.rate || 0;
+                  if (!item.qty) item.qty = 1;
+                  item.cost = item.qty * item.unitRate;
+                  const markup = item.markup ?? 10;
+                  item.sell = item.cost * (1 + markup / 100);
+                  if (qtyInput) qtyInput.value = item.qty;
+                  if (unitInput) unitInput.value = item.unit;
+                  if (unitRateInput) unitRateInput.value = item.unitRate.toFixed(2);
+                  if (cost) cost.value = item.cost.toFixed(2);
+                  if (sell) sell.value = item.sell.toFixed(2);
                   dropdown.style.display = "none";
                 });
                 dropdown.appendChild(dr);
@@ -284,6 +299,46 @@ function openExpenseDetails(nodeId, type, activityId) {
           });
 
           descWrapper.appendChild(desc);
+
+          // Qty, Unit, Unit Rate fields (ODC only)
+          let qtyInput = null, unitInput = null, unitRateInput = null;
+          if (isODC) {
+            const recalcFromQty = () => {
+              const q = parseFloat(qtyInput.value) || 0;
+              const ur = parseFloat(unitRateInput.value) || 0;
+              item.qty = q;
+              item.unitRate = ur;
+              item.cost = q * ur;
+              cost.value = item.cost.toFixed(2);
+              const markup = parseFloat(markupInput.value) || 0;
+              item.sell = item.cost * (1 + markup / 100);
+              sell.value = item.sell.toFixed(2);
+            };
+
+            qtyInput = document.createElement("input");
+            qtyInput.type = "number";
+            qtyInput.min = "0";
+            qtyInput.step = "1";
+            qtyInput.value = item.qty || "";
+            qtyInput.style.textAlign = "right";
+            qtyInput.addEventListener("input", recalcFromQty);
+
+            unitInput = document.createElement("input");
+            unitInput.type = "text";
+            unitInput.value = item.unit || "";
+            unitInput.placeholder = "";
+            unitInput.addEventListener("input", () => {
+              item.unit = unitInput.value;
+            });
+
+            unitRateInput = document.createElement("input");
+            unitRateInput.type = "number";
+            unitRateInput.min = "0";
+            unitRateInput.step = "0.01";
+            unitRateInput.value = item.unitRate || "";
+            unitRateInput.style.textAlign = "right";
+            unitRateInput.addEventListener("input", recalcFromQty);
+          }
 
           const cost = document.createElement("input");
           cost.type = "number";
@@ -333,6 +388,11 @@ function openExpenseDetails(nodeId, type, activityId) {
 
           if (isODC && typeSelect) row.appendChild(typeSelect);
           row.appendChild(descWrapper);
+          if (isODC) {
+            row.appendChild(qtyInput);
+            row.appendChild(unitInput);
+            row.appendChild(unitRateInput);
+          }
           row.appendChild(cost);
           row.appendChild(markupInput);
           row.appendChild(sell);
@@ -346,7 +406,7 @@ function openExpenseDetails(nodeId, type, activityId) {
       addBtn.textContent = "+ Add Item";
       addBtn.style.marginTop = "8px";
       addBtn.addEventListener("click", () => {
-        items.push({ id: crypto.randomUUID(), description: "", expenseType: "Expenses", cost: 0, markup: 10, sell: 0 });
+        items.push({ id: crypto.randomUUID(), description: "", expenseType: "Expenses", qty: 0, unit: "", unitRate: 0, cost: 0, markup: 10, sell: 0 });
         renderRows();
       });
 
@@ -462,7 +522,7 @@ function openUnitDetails(nodeId, activityId) {
       // Header
       const header = document.createElement("div");
       header.style.display = "grid";
-      header.style.gridTemplateColumns = "1fr 80px 100px 100px 80px 100px 100px 32px";
+      header.style.gridTemplateColumns = "1fr 100px 100px 80px 60px 100px 100px 32px";
       header.style.gap = "6px";
       header.style.fontSize = "11px";
       header.style.fontWeight = "600";
@@ -470,10 +530,10 @@ function openUnitDetails(nodeId, activityId) {
       header.style.marginBottom = "6px";
       header.innerHTML =
         '<div>Unit</div>' +
-        '<div>Billing</div>' +
         '<div style="text-align:right">Unit Cost</div>' +
         '<div style="text-align:right">Sell Rate</div>' +
         '<div style="text-align:right">Qty</div>' +
+        '<div></div>' +
         '<div style="text-align:right">Total Cost</div>' +
         '<div style="text-align:right">Total Sell</div>' +
         '<div></div>';
@@ -490,7 +550,7 @@ function openUnitDetails(nodeId, activityId) {
         items.forEach((item, idx) => {
           const row = document.createElement("div");
           row.style.display = "grid";
-          row.style.gridTemplateColumns = "1fr 80px 100px 100px 80px 100px 100px 32px";
+          row.style.gridTemplateColumns = "1fr 100px 100px 80px 60px 100px 100px 32px";
           row.style.gap = "6px";
           row.style.alignItems = "center";
 
@@ -511,11 +571,11 @@ function openUnitDetails(nodeId, activityId) {
             unitSelect.appendChild(opt);
           });
 
-          // Billing unit display
-          const billingEl = document.createElement("div");
-          billingEl.style.fontSize = "11px";
-          billingEl.style.color = "var(--text-muted)";
-          billingEl.textContent = item.billingUnit || "";
+          // Unit type display (after Qty)
+          const unitTypeEl = document.createElement("div");
+          unitTypeEl.style.fontSize = "11px";
+          unitTypeEl.style.color = "var(--text-muted)";
+          unitTypeEl.textContent = item.billingUnit || "";
 
           // Unit cost display
           const costEl = document.createElement("div");
@@ -590,7 +650,7 @@ function openUnitDetails(nodeId, activityId) {
               item.laborCostOT = kpis.totalLaborCostOT || 0;
               item.subsCost = kpis.totalSubsCost || 0;
               item.expenseCost = kpis.totalExpenseCost || 0;
-              billingEl.textContent = item.billingUnit;
+              unitTypeEl.textContent = item.billingUnit;
               costEl.textContent = fmt(item.costPerUnit);
               sellEl.textContent = fmt(item.sellPerUnit);
             } else {
@@ -603,7 +663,7 @@ function openUnitDetails(nodeId, activityId) {
               item.laborCostOT = 0;
               item.subsCost = 0;
               item.expenseCost = 0;
-              billingEl.textContent = "";
+              unitTypeEl.textContent = "";
               costEl.textContent = fmt(0);
               sellEl.textContent = fmt(0);
             }
@@ -617,10 +677,10 @@ function openUnitDetails(nodeId, activityId) {
           });
 
           row.appendChild(unitSelect);
-          row.appendChild(billingEl);
           row.appendChild(costEl);
           row.appendChild(sellEl);
           row.appendChild(qtyInput);
+          row.appendChild(unitTypeEl);
           row.appendChild(totalCostEl);
           row.appendChild(totalSellEl);
           row.appendChild(removeBtn);
@@ -1116,14 +1176,10 @@ function renderTotalsRow() {
       const regValue = document.createElement("div");
       regValue.className = "wbs-labor-rollup";
       regValue.textContent = regTotal > 0 ? formatNumber(regTotal) : "";
-      const regLabel = document.createElement("span");
-      regLabel.className = "labor-input-label";
-      regLabel.textContent = "Reg";
       regWrap.appendChild(regValue);
-      regWrap.appendChild(regLabel);
       regCell.appendChild(regWrap);
       totalsEl.appendChild(regCell);
-      
+
       // OT cell
       const otCell = document.createElement("div");
       otCell.className = `labor-col-cell${oddClass}`;
@@ -1132,11 +1188,7 @@ function renderTotalsRow() {
       const otValue = document.createElement("div");
       otValue.className = "wbs-labor-rollup";
       otValue.textContent = otTotal > 0 ? formatNumber(otTotal) : "";
-      const otLabel = document.createElement("span");
-      otLabel.className = "labor-input-label";
-      otLabel.textContent = "OT";
       otWrap.appendChild(otValue);
-      otWrap.appendChild(otLabel);
       otCell.appendChild(otWrap);
       totalsEl.appendChild(otCell);
     });
@@ -1170,7 +1222,9 @@ function renderTotalsRow() {
 // ---------------------- rendering ----------------------
 function renderWBSNode(container, node, level = 1) {
   const hasChildren = node.children && node.children.length > 0;
-  const isLeaf = !hasChildren;
+  const hasActivities = laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0;
+  const isExpandable = hasChildren || hasActivities;
+  const isLeaf = !isExpandable;
   const collapsed = !!node.collapsed;
 
 	const row = document.createElement("div");
@@ -1178,6 +1232,7 @@ function renderWBSNode(container, node, level = 1) {
 	row.dataset.id = node.id;
 	row.classList.add(`wbs-level-${level}`);
 	row.classList.add(`level-${level}`);  // make CSS happy
+	if (hasChildren) row.classList.add("wbs-parent");
 	row.onclick = () => selectRow(node.id);
 
   // Accept activity drops for reordering/moving
@@ -1295,7 +1350,6 @@ function renderWBSNode(container, node, level = 1) {
         <div class="labor-col-cell${oddClass}">
           <div class="labor-input-wrap">
             <div class="wbs-labor-rollup">${regTotal > 0 ? formatNumber(regTotal) : ''}</div>
-            <span class="labor-input-label">Reg</span>
           </div>
         </div>
       `;
@@ -1303,7 +1357,6 @@ function renderWBSNode(container, node, level = 1) {
         <div class="labor-col-cell${oddClass}">
           <div class="labor-input-wrap">
             <div class="wbs-labor-rollup">${otTotal > 0 ? formatNumber(otTotal) : ''}</div>
-            <span class="labor-input-label">OT</span>
           </div>
         </div>
       `;
@@ -1325,9 +1378,9 @@ function renderWBSNode(container, node, level = 1) {
     `;
   }
 
-  // Task properties cells (checkboxes for leaf nodes only)
+  // Task properties cells (checkboxes for tasks without children — includes tasks with activities)
   let taskPropsCellsHtml = "";
-  if (window.expandedPricingMethods.taskProps && isLeaf) {
+  if (window.expandedPricingMethods.taskProps && !hasChildren) {
     // Initialize properties if not set
     if (node.billable === undefined) node.billable = true;
     if (node.chargeable === undefined) node.chargeable = true;
@@ -1344,7 +1397,7 @@ function renderWBSNode(container, node, level = 1) {
         <input type="checkbox" class="task-prop-checkbox" ${node.gcc ? 'checked' : ''} />
       </div>
     `;
-  } else if (window.expandedPricingMethods.taskProps && !isLeaf) {
+  } else if (window.expandedPricingMethods.taskProps && hasChildren) {
     // Empty cells for parent nodes
     taskPropsCellsHtml += `
       <div class="task-prop-cell"></div>
@@ -1353,8 +1406,8 @@ function renderWBSNode(container, node, level = 1) {
     `;
   }
 
-  const nameClass = hasChildren ? (collapsed ? "wbs-name rollup collapsed" : "wbs-name rollup") : "wbs-name";
-  const expandIconHtml = hasChildren ? `<span class="wbs-expand-icon">${collapsed ? '[+]' : '[–]'}</span>` : '<span class="wbs-expand-spacer"></span>';
+  const nameClass = isExpandable ? (collapsed ? "wbs-name rollup collapsed" : "wbs-name rollup") : "wbs-name";
+  const expandIconHtml = isExpandable ? `<span class="wbs-expand-icon">${collapsed ? '[+]' : '[–]'}</span>` : '<span class="wbs-expand-spacer"></span>';
 
   const formatByType = (value, type) => {
     if (type === "percent") return formatPercent(value);
@@ -1438,10 +1491,10 @@ function renderWBSNode(container, node, level = 1) {
       const tagZone = createPillZone(node.id, "tag", "Tags");
       tagZoneContainer.appendChild(tagZone);
     }
+  }
 
-    // Render activity rows when any pricing method is expanded
-    const anyPricingExpanded = window.expandedPricingMethods.labor || window.expandedPricingMethods.expense || window.expandedPricingMethods.usages || window.expandedPricingMethods.schedule;
-    if (anyPricingExpanded && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
+  // Render activity rows when node has activities and is not collapsed
+  if (!collapsed && laborActivities[node.id] && Array.isArray(laborActivities[node.id].activities) && laborActivities[node.id].activities.length > 0) {
       const setActiveActivityRow = (rowEl) => {
         document.querySelectorAll(".wbs-row-active").forEach(el => {
           el.classList.remove("wbs-row-active");
@@ -1452,7 +1505,7 @@ function renderWBSNode(container, node, level = 1) {
         selectedActivityId = rowEl.dataset.activityId;
       };
 
-      const createLaborInput = (rowEl, value, onChange, label, isOddResource, activityId, resourceId, type) => {
+      const createLaborInput = (rowEl, value, onChange, isOddResource, activityId, resourceId, type) => {
         const wrap = document.createElement("div");
         wrap.className = "labor-col-cell" + (isOddResource ? " odd-resource" : "");
 
@@ -1473,7 +1526,9 @@ function renderWBSNode(container, node, level = 1) {
           if (window.Calculations && window.Calculations.recalculate) {
             clearTimeout(window._calcTimeout);
             window._calcTimeout = setTimeout(() => {
-              window.Calculations.recalculate();
+              window.Calculations.recalculate().then(() => {
+                renderWBS();
+              });
             }, 500);
           }
         });
@@ -1481,12 +1536,7 @@ function renderWBSNode(container, node, level = 1) {
           setActiveActivityRow(rowEl);
         });
 
-        const labelEl = document.createElement("span");
-        labelEl.className = "labor-input-label";
-        labelEl.textContent = label;
-
         inner.appendChild(input);
-        inner.appendChild(labelEl);
         wrap.appendChild(inner);
         return wrap;
       };
@@ -1701,10 +1751,10 @@ function renderWBSNode(container, node, level = 1) {
             const isOdd = (idx % 2 === 1);
             const regInput = createLaborInput(activityRow, activity.hours[res.id].reg, (val) => {
               activity.hours[res.id].reg = val;
-            }, "Reg", isOdd, activity.id, res.id, "reg");
+            }, isOdd, activity.id, res.id, "reg");
             const otInput = createLaborInput(activityRow, activity.hours[res.id].ot, (val) => {
               activity.hours[res.id].ot = val;
-            }, "OT", isOdd, activity.id, res.id, "ot");
+            }, isOdd, activity.id, res.id, "ot");
 
             activityRow.appendChild(regInput);
             activityRow.appendChild(otInput);
@@ -1766,13 +1816,22 @@ function renderWBSNode(container, node, level = 1) {
           activityRow.appendChild(makeDateCell("finish"));
         }
 
+        // Empty task props cells to maintain grid alignment
+        if (window.expandedPricingMethods.taskProps) {
+          for (let tp = 0; tp < 3; tp++) {
+            const tpCell = document.createElement("div");
+            tpCell.className = "task-prop-cell";
+            activityRow.appendChild(tpCell);
+          }
+        }
+
         const tagsCell = document.createElement("div");
         activityRow.appendChild(tagsCell);
 
         // Calculate financial values for this activity
         async function calculateActivityFinancials() {
-          let directLaborReg = 0;
-          let directLaborOT = 0;
+          let directLaborBase = 0; // All hours at regular rate (attracts burden)
+          let otPremium = 0;       // (OT rate - Reg rate) * OT hours (no burden)
           let revenue = 0;
 
           for (const columnId in activity.hours) {
@@ -1793,8 +1852,8 @@ function renderWBSNode(container, node, level = 1) {
             }
             if (!rates) continue;
 
-            directLaborReg += regHours * rates.costRegular;
-            directLaborOT += otHours * rates.costOT;
+            directLaborBase += (regHours + otHours) * rates.costRegular;
+            otPremium += (rates.costOT - rates.costRegular) * otHours;
             revenue += regHours * rates.sellRegular + otHours * rates.sellOT;
           }
 
@@ -1811,11 +1870,12 @@ function renderWBSNode(container, node, level = 1) {
               aURev += (ui.sellPerUnit || 0) * qty;
             }
           }
-          directLaborReg += aULReg;
-          directLaborOT += aULOT;
+          // Unit reg labor attracts burden; unit OT is premium (no burden)
+          directLaborBase += aULReg;
+          otPremium += aULOT;
           revenue += aURev;
 
-          const rawLabor = directLaborReg + directLaborOT;
+          const rawLabor = directLaborBase + otPremium;
 
           // Get expense values from this activity
           const subsItems = activity.expenses?.subs || [];
@@ -1828,19 +1888,18 @@ function renderWBSNode(container, node, level = 1) {
           const grossRevenue = revenue + subsSell + odcSell;
           const netRevenue = grossRevenue - subsCost - odcCost;
 
+          // Burden applies only to directLaborBase; OT premium is unburdened
           const fringeRegRate = window.ohRates?.regular?.laborFringe ?? 0;
-          const fringeOtRate = window.ohRates?.overtime?.laborFringe ?? fringeRegRate;
           const ohRegRate = (window.ohRates?.regular?.operatingCosts ?? 0) + (window.ohRates?.regular?.operatingOH ?? 0);
-          const ohOtRate = (window.ohRates?.overtime?.operatingCosts ?? 0) + (window.ohRates?.overtime?.operatingOH ?? 0);
 
-          const fringeBurden = (directLaborReg * fringeRegRate) + (directLaborOT * fringeOtRate);
-          const ohBurden = (directLaborReg * ohRegRate) + (directLaborOT * ohOtRate);
+          const fringeBurden = directLaborBase * fringeRegRate;
+          const ohBurden = directLaborBase * ohRegRate;
           const burdenedLabor = rawLabor + fringeBurden + ohBurden;
           const totalCost = burdenedLabor + subsCost + odcCost;
 
           // Unit burden for aggregate display
-          const aUFringe = (aULReg * fringeRegRate) + (aULOT * fringeOtRate);
-          const aUOH = (aULReg * ohRegRate) + (aULOT * ohOtRate);
+          const aUFringe = aULReg * fringeRegRate;
+          const aUOH = aULReg * ohRegRate;
           const aULRaw = aULReg + aULOT;
 
           const dlm = rawLabor > 0 ? (netRevenue / rawLabor) : 0;
@@ -1922,10 +1981,9 @@ function renderWBSNode(container, node, level = 1) {
         container.appendChild(activityRow);
       });
     }
-  }
 
   const expandIcon = row.querySelector(".wbs-expand-icon");
-  if (expandIcon && hasChildren) {
+  if (expandIcon) {
     expandIcon.onclick = e => {
       e.stopPropagation();
       node.collapsed = !node.collapsed;
@@ -1951,9 +2009,8 @@ function renderWBSNode(container, node, level = 1) {
     codeEl.title = "Double-click to override WBS code";
   }
 
-  if (hasChildren && !collapsed) {
+  if (hasChildren && !collapsed)
     node.children.forEach(child => renderWBSNode(container, child, level + 1));
-  }
 }
 
 function renderWBS() {
@@ -2096,39 +2153,39 @@ function renderWBS() {
 
   const wbsUnitsAgg = window.unitsDisplayMode === "aggregate";
   const wbsUnitsCols = wbsUnitsAgg ? [
-    { key: "unitsCost", label: "Units Cost", format: "money", width: "120px" },
-    { key: "unitsSell", label: "Units Sell", format: "money", width: "120px" },
+    { key: "unitsCost", label: "Units Cost", format: "money", width: "80px" },
+    { key: "unitsSell", label: "Units Sell", format: "money", width: "80px" },
   ] : [];
 
   financialColumns = window.financialMode === "simple"
     ? [
-        { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "130px" },
-        { key: "subcontractors", label: "Subs", format: "money", width: "120px" },
-        { key: "odc", label: "ODC", format: "money", width: "120px" },
+        { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "90px" },
+        { key: "subcontractors", label: "Subs", format: "money", width: "70px" },
+        { key: "odc", label: "ODC", format: "money", width: "70px" },
         ...wbsUnitsCols,
-        { key: "directLabor", label: "Raw Labor", format: "money", width: "120px" },
-        { key: "totalCost", label: "Total Cost", format: "money", width: "120px" },
-        { key: "netRevenue", label: "Net Revenue", format: "money", width: "130px" },
-        { key: "nmPct", label: "NM%", format: "percent", width: "90px" },
-        { key: "dlm", label: "DLM", format: "money", width: "90px" }
+        { key: "directLabor", label: "Raw Labor", format: "money", width: "80px" },
+        { key: "totalCost", label: "Total Cost", format: "money", width: "80px" },
+        { key: "netRevenue", label: "Net Revenue", format: "money", width: "85px" },
+        { key: "nmPct", label: "NM%", format: "percent", width: "55px" },
+        { key: "dlm", label: "DLM", format: "money", width: "55px" }
       ]
     : [
-        { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "130px" },
-        { key: "subcontractors", label: "Subs", format: "money", width: "120px" },
-        { key: "odc", label: "ODC", format: "money", width: "120px" },
+        { key: "grossRevenue", label: "Gross Revenue", format: "money", width: "90px" },
+        { key: "subcontractors", label: "Subs", format: "money", width: "70px" },
+        { key: "odc", label: "ODC", format: "money", width: "70px" },
         ...wbsUnitsCols,
-        { key: "directLabor", label: "Raw Labor", format: "money", width: "130px" },
-        { key: "netRevenue", label: "Net Revenue", format: "money", width: "130px" },
-        { key: "dlm", label: "DLM", format: "money", width: "90px" },
-        { key: "fringeBurden", label: "Fringe Burden", format: "money", width: "120px" },
-        { key: "pcm", label: "PCM", format: "money", width: "120px" },
-        { key: "pcmPct", label: "PCM%", format: "percent", width: "90px" },
-        { key: "ohBurden", label: "OH Burden", format: "money", width: "120px" },
-        { key: "burdenedLabor", label: "Burdened Labor", format: "money", width: "130px" },
-        { key: "totalCost", label: "Total Cost", format: "money", width: "120px" },
-        { key: "netMargin", label: "Net Margin", format: "money", width: "120px" },
-        { key: "nmPct", label: "NM%", format: "percent", width: "90px" },
-        { key: "gmPct", label: "GM%", format: "percent", width: "90px" }
+        { key: "directLabor", label: "Raw Labor", format: "money", width: "80px" },
+        { key: "netRevenue", label: "Net Revenue", format: "money", width: "85px" },
+        { key: "dlm", label: "DLM", format: "money", width: "55px" },
+        { key: "fringeBurden", label: "Fringe Burden", format: "money", width: "85px" },
+        { key: "pcm", label: "PCM", format: "money", width: "65px" },
+        { key: "pcmPct", label: "PCM%", format: "percent", width: "55px" },
+        { key: "ohBurden", label: "OH Burden", format: "money", width: "75px" },
+        { key: "burdenedLabor", label: "Burdened Labor", format: "money", width: "90px" },
+        { key: "totalCost", label: "Total Cost", format: "money", width: "80px" },
+        { key: "netMargin", label: "Net Margin", format: "money", width: "80px" },
+        { key: "nmPct", label: "NM%", format: "percent", width: "55px" },
+        { key: "gmPct", label: "GM%", format: "percent", width: "55px" }
       ];
 
   // Build column layout based on pricing methods
@@ -2152,7 +2209,13 @@ function renderWBS() {
       
       columnTemplate += `
         <div class="col-header resource-header${headerOddClass}" data-resource-id="${res.id}" draggable="true" style="text-align: center; font-size: 11px; grid-column: span 2; cursor: pointer; user-select: none;" ${titleAttr}>
-          ${expanderHtml}${res.name}${overrideIndicator}
+          <div style="display: flex; flex-direction: column; align-items: center; gap: 0;">
+            <div>${expanderHtml}${res.name}${overrideIndicator}</div>
+            <div style="display: flex; width: 100%; justify-content: space-around;">
+              <span class="labor-sub-header">Reg</span>
+              <span class="labor-sub-header">OT</span>
+            </div>
+          </div>
         </div>
       `;
     });
@@ -2175,9 +2238,9 @@ function renderWBS() {
   // Add task properties columns if expanded
   if (window.expandedPricingMethods.taskProps) {
     columnTemplate += `
-      <div class="col-header" style="text-align: center; font-size: 11px;">Billable</div>
-      <div class="col-header" style="text-align: center; font-size: 11px;">Chargeable</div>
-      <div class="col-header" style="text-align: center; font-size: 11px;">GCC</div>
+      <div class="col-header" style="justify-content: center; font-size: 11px;">Billable</div>
+      <div class="col-header" style="justify-content: center; font-size: 11px;">Chargeable</div>
+      <div class="col-header" style="justify-content: center; font-size: 11px;">GCC</div>
     `;
   }
 
@@ -2197,7 +2260,7 @@ function renderWBS() {
   let columnWidth = "100px 260px"; // WBS, Activity
   if (window.expandedPricingMethods.labor) {
     for (let i = 0; i < laborResources.length; i++) {
-      columnWidth += " 75px 75px";
+      columnWidth += " 55px 55px";
     }
   }
   if (window.expandedPricingMethods.schedule) {

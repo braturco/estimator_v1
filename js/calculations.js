@@ -19,12 +19,12 @@ window.Calculations = (function () {
   
   // Calculate financial values for a single leaf node (task/work item)
   async function calculateLeafNode(node) {
-    let directLaborReg = 0;
-    let directLaborOT = 0;
+    let directLaborBase = 0; // All hours at regular rate (attracts burden)
+    let otPremium = 0;       // (OT rate - Reg rate) * OT hours (no burden)
     let revenue = 0;
 
     // Calculate labor costs and revenue from activities
-    const entry = laborActivities[node.id];
+    const entry = window.laborActivities[node.id];
     if (entry && Array.isArray(entry.activities)) {
       for (const activity of entry.activities) {
         if (!activity.hours) continue;
@@ -51,9 +51,10 @@ window.Calculations = (function () {
               continue;
             }
 
-            // Calculate direct labor (cost) - keep reg and OT separate for OH calculation
-            directLaborReg += regHours * rates.costRegular;
-            directLaborOT += otHours * rates.costOT;
+            // All hours costed at regular rate (burden base)
+            directLaborBase += (regHours + otHours) * rates.costRegular;
+            // OT premium: unburdened
+            otPremium += (rates.costOT - rates.costRegular) * otHours;
 
             // Calculate revenue (sell)
             const regRevenue = regHours * rates.sellRegular;
@@ -85,12 +86,13 @@ window.Calculations = (function () {
       }
     }
 
-    // Fold unit labor into direct labor (so burden applies)
-    directLaborReg += unitLaborReg;
-    directLaborOT += unitLaborOT;
+    // Fold unit labor into direct labor
+    // Unit reg labor attracts burden; unit OT labor treated as premium (no burden)
+    directLaborBase += unitLaborReg;
+    otPremium += unitLaborOT;
     revenue += unitRevenue;
 
-    const rawLabor = directLaborReg + directLaborOT;
+    const rawLabor = directLaborBase + otPremium;
 
     // Sum raw expense values from activity data (source of truth)
     // to avoid reading back accumulated values from node properties
@@ -118,20 +120,21 @@ window.Calculations = (function () {
     const grossRevenue = revenue + subsSell + odcSell;
     const netRevenue = grossRevenue - subs - odc;
 
+    // Burden applies only to directLaborBase (all hours at reg rate + unit reg labor)
+    // OT premium does NOT attract burden
     const fringeRegRate = window.ohRates?.regular?.laborFringe ?? 0;
-    const fringeOtRate = window.ohRates?.overtime?.laborFringe ?? fringeRegRate;
     const ohRegRate = (window.ohRates?.regular?.operatingCosts ?? 0) + (window.ohRates?.regular?.operatingOH ?? 0);
-    const ohOtRate = (window.ohRates?.overtime?.operatingCosts ?? 0) + (window.ohRates?.overtime?.operatingOH ?? 0);
 
-    const fringeBurden = (directLaborReg * fringeRegRate) + (directLaborOT * fringeOtRate);
-    const ohBurden = (directLaborReg * ohRegRate) + (directLaborOT * ohOtRate);
+    const fringeBurden = directLaborBase * fringeRegRate;
+    const ohBurden = directLaborBase * ohRegRate;
 
     const burdenedLabor = rawLabor + fringeBurden + ohBurden;
     const totalCost = burdenedLabor + subs + odc;
 
     // Unit-specific burden (for aggregate display mode)
-    const unitFringe = (unitLaborReg * fringeRegRate) + (unitLaborOT * fringeOtRate);
-    const unitOH = (unitLaborReg * ohRegRate) + (unitLaborOT * ohOtRate);
+    // Only unit reg labor attracts burden; unit OT is premium (unburdened)
+    const unitFringe = unitLaborReg * fringeRegRate;
+    const unitOH = unitLaborReg * ohRegRate;
     const unitLaborRaw = unitLaborReg + unitLaborOT;
     const unitBurdenedLabor = unitLaborRaw + unitFringe + unitOH;
     const unitsCost = unitBurdenedLabor + unitSubsCost + unitExpCost;
@@ -173,87 +176,55 @@ window.Calculations = (function () {
     };
   }
 
-  // Roll up calculations from children to parent
-  function rollupNode(node) {
-    const totals = {
-      grossRevenue: 0,
-      subcontractors: 0,
-      odc: 0,
-      subcontractorsSell: 0,
-      odcSell: 0,
-      directLabor: 0,
-      netRevenue: 0,
-      dlm: 0,
-      fringeBurden: 0,
-      pcm: 0,
-      pcmPct: 0,
-      ohBurden: 0,
-      burdenedLabor: 0,
-      totalCost: 0,
-      netMargin: 0,
-      nmPct: 0,
-      gmPct: 0,
-      unitsCost: 0,
-      unitsSell: 0,
-      unitsLaborRaw: 0,
-      unitsSubsCost: 0,
-      unitsExpenseCost: 0,
-      unitsFringeBurden: 0,
-      unitsOHBurden: 0
-    };
 
-    if (!node.children || node.children.length === 0) {
-      return totals;
-    }
-
-    // Sum up all children
-    for (const child of node.children) {
-      totals.grossRevenue += Number(child.grossRevenue || 0);
-      totals.subcontractors += Number(child.subcontractors || 0);
-      totals.odc += Number(child.odc || 0);
-      totals.subcontractorsSell += Number(child.subcontractorsSell || 0);
-      totals.odcSell += Number(child.odcSell || 0);
-      totals.directLabor += Number(child.directLabor || 0);
-      totals.netRevenue += Number(child.netRevenue || 0);
-      totals.fringeBurden += Number(child.fringeBurden || 0);
-      totals.pcm += Number(child.pcm || 0);
-      totals.ohBurden += Number(child.ohBurden || 0);
-      totals.burdenedLabor += Number(child.burdenedLabor || 0);
-      totals.totalCost += Number(child.totalCost || 0);
-      totals.netMargin += Number(child.netMargin || 0);
-      totals.unitsCost += Number(child.unitsCost || 0);
-      totals.unitsSell += Number(child.unitsSell || 0);
-      totals.unitsLaborRaw += Number(child.unitsLaborRaw || 0);
-      totals.unitsSubsCost += Number(child.unitsSubsCost || 0);
-      totals.unitsExpenseCost += Number(child.unitsExpenseCost || 0);
-      totals.unitsFringeBurden += Number(child.unitsFringeBurden || 0);
-      totals.unitsOHBurden += Number(child.unitsOHBurden || 0);
-    }
-
-    totals.dlm = totals.directLabor > 0 ? (totals.netRevenue / totals.directLabor) : 0;
-    totals.pcmPct = totals.grossRevenue > 0 ? (totals.pcm / totals.grossRevenue) : 0;
-    totals.nmPct = totals.netRevenue > 0 ? (totals.netMargin / totals.netRevenue) : 0;
-    totals.gmPct = totals.grossRevenue > 0 ? ((totals.grossRevenue - totals.totalCost) / totals.grossRevenue) : 0;
-
-    return totals;
-  }
 
   // Calculate entire WBS tree (recursive)
   async function calculateNode(node) {
     const hasChildren = node.children && node.children.length > 0;
+    const hasActivities = window.laborActivities[node.id] && Array.isArray(window.laborActivities[node.id].activities) && window.laborActivities[node.id].activities.length > 0;
 
-    if (!hasChildren) {
-      // Leaf node - calculate from activities and hours
-      const values = await calculateLeafNode(node);
-      Object.assign(node, values);
-    } else {
-      // Parent node - recurse children first, then roll up
+    // Always calculate from activities if this node has them
+    let values = { grossRevenue: 0, subcontractors: 0, odc: 0, subcontractorsSell: 0, odcSell: 0, directLabor: 0, netRevenue: 0, dlm: 0, fringeBurden: 0, pcm: 0, pcmPct: 0, ohBurden: 0, burdenedLabor: 0, totalCost: 0, netMargin: 0, nmPct: 0, gmPct: 0, unitsCost: 0, unitsSell: 0, unitsLaborRaw: 0, unitsSubsCost: 0, unitsExpenseCost: 0, unitsFringeBurden: 0, unitsOHBurden: 0 };
+
+    if (hasActivities) {
+      const activityValues = await calculateLeafNode(node);
+      Object.assign(values, activityValues);
+    }
+
+    if (hasChildren) {
+      // Recurse children first, then add their values to this node's values
       for (const child of node.children) {
         await calculateNode(child);
+        values.grossRevenue += Number(child.grossRevenue || 0);
+        values.subcontractors += Number(child.subcontractors || 0);
+        values.odc += Number(child.odc || 0);
+        values.subcontractorsSell += Number(child.subcontractorsSell || 0);
+        values.odcSell += Number(child.odcSell || 0);
+        values.directLabor += Number(child.directLabor || 0);
+        values.netRevenue += Number(child.netRevenue || 0);
+        values.fringeBurden += Number(child.fringeBurden || 0);
+        values.pcm += Number(child.pcm || 0);
+        values.ohBurden += Number(child.ohBurden || 0);
+        values.burdenedLabor += Number(child.burdenedLabor || 0);
+        values.totalCost += Number(child.totalCost || 0);
+        values.netMargin += Number(child.netMargin || 0);
+        values.unitsCost += Number(child.unitsCost || 0);
+        values.unitsSell += Number(child.unitsSell || 0);
+        values.unitsLaborRaw += Number(child.unitsLaborRaw || 0);
+        values.unitsSubsCost += Number(child.unitsSubsCost || 0);
+        values.unitsExpenseCost += Number(child.unitsExpenseCost || 0);
+        values.unitsFringeBurden += Number(child.unitsFringeBurden || 0);
+        values.unitsOHBurden += Number(child.unitsOHBurden || 0);
       }
-      const values = rollupNode(node);
-      Object.assign(node, values);
     }
+
+    // Calculate derived values
+    values.dlm = values.directLabor > 0 ? (values.netRevenue / values.directLabor) : 0;
+    values.pcmPct = values.grossRevenue > 0 ? (values.pcm / values.grossRevenue) : 0;
+    values.nmPct = values.netRevenue > 0 ? (values.netMargin / values.netRevenue) : 0;
+    values.gmPct = values.grossRevenue > 0 ? ((values.grossRevenue - values.totalCost) / values.grossRevenue) : 0;
+
+    Object.assign(node, values);
   }
 
   // Calculate entire WBS
@@ -468,8 +439,8 @@ window.Calculations = (function () {
             const cells = activityRow.querySelectorAll(".wbs-fin-cell");
             if (cells.length >= financialColumns.length) {
               // Calculate activity financials
-              let directLaborReg = 0;
-              let directLaborOT = 0;
+              let directLaborBase = 0; // All hours at regular rate (attracts burden)
+              let otPremium = 0;       // (OT rate - Reg rate) * OT hours (no burden)
               let revenue = 0;
 
               for (const columnId in activity.hours) {
@@ -490,8 +461,8 @@ window.Calculations = (function () {
                 }
                 if (!rates) continue;
 
-                directLaborReg += regHours * rates.costRegular;
-                directLaborOT += otHours * rates.costOT;
+                directLaborBase += (regHours + otHours) * rates.costRegular;
+                otPremium += (rates.costOT - rates.costRegular) * otHours;
                 revenue += regHours * rates.sellRegular + otHours * rates.sellOT;
               }
 
@@ -509,9 +480,9 @@ window.Calculations = (function () {
                 }
               }
 
-              // Fold unit labor into activity labor
-              directLaborReg += aUnitLaborReg;
-              directLaborOT += aUnitLaborOT;
+              // Fold unit labor: reg attracts burden, OT is premium (no burden)
+              directLaborBase += aUnitLaborReg;
+              otPremium += aUnitLaborOT;
               revenue += aUnitRev;
 
               // Get expense values from this activity
@@ -525,20 +496,19 @@ window.Calculations = (function () {
               const grossRevenue = revenue + subsSell + odcSell;
               const netRevenue = grossRevenue - subs - odc;
 
+              // Burden applies only to directLaborBase; OT premium is unburdened
               const fringeRegRate = window.ohRates?.regular?.laborFringe ?? 0;
-              const fringeOtRate = window.ohRates?.overtime?.laborFringe ?? fringeRegRate;
               const ohRegRate = (window.ohRates?.regular?.operatingCosts ?? 0) + (window.ohRates?.regular?.operatingOH ?? 0);
-              const ohOtRate = (window.ohRates?.overtime?.operatingCosts ?? 0) + (window.ohRates?.overtime?.operatingOH ?? 0);
 
-              const rawLabor = directLaborReg + directLaborOT;
-              const fringeBurden = (directLaborReg * fringeRegRate) + (directLaborOT * fringeOtRate);
-              const ohBurden = (directLaborReg * ohRegRate) + (directLaborOT * ohOtRate);
+              const rawLabor = directLaborBase + otPremium;
+              const fringeBurden = directLaborBase * fringeRegRate;
+              const ohBurden = directLaborBase * ohRegRate;
               const burdenedLabor = rawLabor + fringeBurden + ohBurden;
               const totalCost = burdenedLabor + subs + odc;
 
               // Unit-specific burden for aggregate display
-              const aUnitFringe = (aUnitLaborReg * fringeRegRate) + (aUnitLaborOT * fringeOtRate);
-              const aUnitOH = (aUnitLaborReg * ohRegRate) + (aUnitLaborOT * ohOtRate);
+              const aUnitFringe = aUnitLaborReg * fringeRegRate;
+              const aUnitOH = aUnitLaborReg * ohRegRate;
               const aUnitLaborRaw = aUnitLaborReg + aUnitLaborOT;
               const aUnitBurdened = aUnitLaborRaw + aUnitFringe + aUnitOH;
 
